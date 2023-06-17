@@ -2,49 +2,68 @@ package impl
 
 import (
 	"context"
-	"errors"
 	"github.com/obnahsgnaw/sockethandler/service/action"
 	"github.com/obnahsgnaw/sockethandler/service/codec"
 	handlerv1 "github.com/obnahsgnaw/sockethandler/service/proto/gen/handler/v1"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"strconv"
 )
 
 type HandlerService struct {
-	manager *action.Manager
-	logger  *zap.Logger
+	manager             *action.Manager
+	logger              *zap.Logger
+	dateBuilderProvider codec.DataBuilderProvider
 	handlerv1.UnimplementedHandlerServiceServer
 }
 
 func NewHandlerService(manager *action.Manager, logger *zap.Logger) *HandlerService {
-	return &HandlerService{manager: manager, logger: logger}
+	return &HandlerService{manager: manager, logger: logger, dateBuilderProvider: codec.NewDbp()}
 }
 
 func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest) (*handlerv1.HandleResponse, error) {
 	if s.logger != nil {
 		s.logger.Debug("handle request", zap.Uint32("action_id", q.ActionId), zap.String("gateway", q.Gateway), zap.Int64("fd", q.Fd), zap.String("bind_id", q.Id), zap.String("bind_type", q.Type), zap.ByteString("data", q.Package), zap.String("format", q.Format.String()))
 	}
-	if _, ok := s.manager.GetAction(codec.ActionId(q.ActionId)); !ok {
-		s.logger.Error("not found action:" + strconv.Itoa(int(q.ActionId)))
-		return nil, errors.New("NotFound")
+	// fetch action handler
+	act, structure, handler, ok := s.manager.GetHandler(codec.ActionId(q.ActionId))
+	if !ok {
+		s.logger.Error("no handler for action:" + strconv.Itoa(int(q.ActionId)))
+		return nil, status.Error(codes.NotFound, "not found")
 	}
-	respAction, respData, err := s.manager.Dispatch(ctx, &action.HandlerReq{
-		ActionId: q.ActionId,
-		Gateway:  q.Gateway,
-		Fd:       q.Fd,
-		Id:       q.Id,
-		Type:     q.Type,
-		Format:   q.Format.String(),
-		Package:  q.Package,
+	s.logger.Info("handle action:" + act.String())
+	// unpack data
+	data := structure()
+	if err := s.dateBuilderProvider.Provider(codec.Name(q.Format)).Unpack(q.Package, data); err != nil {
+		s.logger.Error("unpack data failed, err=" + err.Error())
+		return nil, status.Error(codes.InvalidArgument, "data unpack failed, err="+err.Error())
+	}
+
+	// handle
+	respAction, respData, err := handler(ctx, &action.HandlerReq{
+		Action:  act,
+		Gateway: q.Gateway,
+		Fd:      q.Fd,
+		Id:      q.Id,
+		Type:    q.Type,
+		Data:    data,
 	})
 	if err != nil {
-		s.logger.Error("handle failed:" + strconv.Itoa(int(q.ActionId)) + ",err=" + err.Error())
-		return nil, err
+		s.logger.Error("handle failed, err=" + err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-	s.logger.Debug("handle response", zap.String("action_id", respAction.Id.String()), zap.ByteString("data", respData))
+	// response data pack
+	resp, err := s.dateBuilderProvider.Provider(codec.Name(q.Format)).Pack(respData)
+	if err != nil {
+		s.logger.Error("handle response data pack failed, err=" + err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	// response
+	s.logger.Info("handle complete", zap.String("action", respAction.Id.String()), zap.ByteString("data", resp))
 	return &handlerv1.HandleResponse{
 		ActionId:   uint32(respAction.Id),
 		ActionName: respAction.Name,
-		Package:    respData,
+		Package:    resp,
 	}, nil
 }

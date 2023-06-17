@@ -106,6 +106,7 @@ func (s *Handler) Logger() *zap.Logger {
 	return s.logger
 }
 
+// WithDocServer with doc server
 func (s *Handler) WithDocServer(port int, path string, provider func() ([]byte, error)) {
 	config := &DocConfig{
 		id:      s.id,
@@ -129,6 +130,7 @@ func (s *Handler) WithDocServer(port int, path string, provider func() ([]byte, 
 	s.debug("withed handler doc server")
 }
 
+// Release resource
 func (s *Handler) Release() {
 	if s.rs != nil {
 		s.rs.Release()
@@ -139,6 +141,7 @@ func (s *Handler) Release() {
 	_ = s.logger.Sync()
 }
 
+// Run start run
 func (s *Handler) Run(failedCb func(error)) {
 	if s.err != nil {
 		failedCb(s.err)
@@ -164,8 +167,9 @@ func (s *Handler) Run(failedCb func(error)) {
 	}
 }
 
-func (s *Handler) Listen(act codec.Action, handler action.Handler) {
-	s.am.RegisterHandler(act, handler)
+// Listen action
+func (s *Handler) Listen(act codec.Action, structure action.DataStructure, handler action.Handler) {
+	s.am.RegisterHandler(act, structure, handler)
 }
 
 func (s *Handler) register(register regCenter.Register, reg bool) error {
