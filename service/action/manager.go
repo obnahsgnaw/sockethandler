@@ -2,78 +2,58 @@ package action
 
 import (
 	"context"
-	"errors"
 	"github.com/obnahsgnaw/sockethandler/service/codec"
 	"sync"
 )
 
 type Manager struct {
-	handlers            sync.Map // action-id, action-handler
-	dateBuilderProvider codec.DataBuilderProvider
+	handlers sync.Map // action-id, action-handler
 }
 
 func NewManager() *Manager {
-	return &Manager{
-		dateBuilderProvider: codec.NewDbp(),
-	}
+	return &Manager{}
 }
 
 type HandlerReq struct {
-	ActionId uint32
-	Gateway  string
-	Fd       int64
-	Id       string
-	Type     string
-	Format   string
-	Package  []byte
+	Action  codec.Action
+	Gateway string
+	Fd      int64
+	Id      string
+	Type    string
+	Data    codec.DataPtr
 }
 
-type Handler func(context.Context, codec.DataBuilder, *HandlerReq) (codec.Action, []byte, error)
+type Handler func(context.Context, *HandlerReq) (codec.Action, codec.DataPtr, error)
+
+type DataStructure func() codec.DataPtr
 
 type actionHandler struct {
-	Action  codec.Action
-	Handler Handler
+	action    codec.Action
+	structure DataStructure
+	handler   Handler
 }
 
 // RegisterHandler register an action with handler
-func (m *Manager) RegisterHandler(action codec.Action, handler Handler) {
-	m.handlers.Store(action.Id, actionHandler{Action: action, Handler: handler})
+func (m *Manager) RegisterHandler(action codec.Action, ds DataStructure, handler Handler) {
+	m.handlers.Store(action.Id, actionHandler{action: action, structure: ds, handler: handler})
 }
 
-func (m *Manager) getHandler(actionId codec.ActionId) (Handler, bool) {
+func (m *Manager) GetHandler(actionId codec.ActionId) (codec.Action, DataStructure, Handler, bool) {
 	if h, ok := m.handlers.Load(actionId); ok {
-		return h.(actionHandler).Handler, true
+		h1 := h.(actionHandler)
+		return h1.action, h1.structure, h1.handler, true
 	}
 
-	return nil, false
-}
-
-func (m *Manager) GetAction(actionId codec.ActionId) (codec.Action, bool) {
-	if h, ok := m.handlers.Load(actionId); ok {
-		return h.(actionHandler).Action, true
-	}
-
-	return codec.Action{}, false
+	return codec.Action{}, nil, nil, false
 }
 
 func (m *Manager) RangeHandlerActions(handle func(action codec.Action) error) (err error) {
 	m.handlers.Range(func(key, value interface{}) bool {
 		h := value.(actionHandler)
-		if err = handle(h.Action); err != nil {
+		if err = handle(h.action); err != nil {
 			return false
 		}
 		return true
 	})
-	return
-}
-
-// Dispatch the actions
-func (m *Manager) Dispatch(ctx context.Context, q *HandlerReq) (respAction codec.Action, respData []byte, err error) {
-	if actHandler, ok := m.handlers.Load(codec.ActionId(q.ActionId)); ok {
-		respAction, respData, err = actHandler.(actionHandler).Handler(ctx, m.dateBuilderProvider.Provider(codec.Name(q.Format)), q)
-		return
-	}
-
-	err = errors.New("NotFound")
 	return
 }
