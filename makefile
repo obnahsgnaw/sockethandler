@@ -58,3 +58,9 @@ changelog:
 	@git commit -m "chore(release): ${shell git describe --tags `git rev-list --tags --max-count=1`}"
 	@git tag -a -f ${shell git describe --tags `git rev-list --tags --max-count=1`}
 	@echo "Done"
+
+.PHONY: pb
+pb:
+	@echo "generate proto..."
+	@cd service/proto/service && buf generate
+	@echo "Done"
