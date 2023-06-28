@@ -22,20 +22,25 @@ import (
 )
 
 type Handler struct {
-	id      string
-	name    string
-	st      servertype.ServerType
-	sct     sockettype.SocketType
-	et      endtype.EndType
-	host    url.Host
-	app     *application.Application
-	am      *action.Manager
-	rpm     *rpc.Manager
-	rs      *rpc2.Server
-	logger  *zap.Logger
-	ds      *DocServer
-	regInfo *regCenter.RegInfo // actions
-	err     error
+	id           string
+	name         string
+	st           servertype.ServerType
+	sct          sockettype.SocketType
+	et           endtype.EndType
+	host         url.Host
+	app          *application.Application
+	am           *action.Manager
+	tpm          *rpc.Manager
+	wpm          *rpc.Manager
+	rs           *rpc2.Server
+	logger       *zap.Logger
+	ds           *DocServer
+	regInfo      *regCenter.RegInfo // actions
+	tcpGwRegInfo *regCenter.RegInfo // tcp gateway
+	wssGwRegInfo *regCenter.RegInfo // wss gateway
+	tgw          *impl.Gateway
+	wgw          *impl.Gateway
+	err          error
 }
 
 func New(app *application.Application, module, subModule, name string, et endtype.EndType, st sockettype.SocketType, rpcHost url.Host) *Handler {
@@ -47,9 +52,12 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 		et:   et,
 		app:  app,
 		am:   action.NewManager(),
-		rpm:  rpc.NewManager(),
+		tpm:  rpc.NewManager(),
+		wpm:  rpc.NewManager(),
 		host: rpcHost,
 	}
+	s.tgw = impl.NewGateway(app.Context(), s.tpm)
+	s.wgw = impl.NewGateway(app.Context(), s.wpm)
 	s.logger, s.err = logger.New(utils.ToStr("Hdl[", s.et.String(), "-", s.sct.String(), "-", module+"-"+subModule, "]"), s.app.LogConfig(), s.app.Debugger().Debug())
 	s.regInfo = &regCenter.RegInfo{
 		AppId:   s.app.ID(),
@@ -64,6 +72,26 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 		Val:       s.host.String(),
 		Ttl:       s.app.RegTtl(),
 		KeyPreGen: regCenter.ActionRegKeyPrefixGenerator(),
+	}
+	s.tcpGwRegInfo = &regCenter.RegInfo{
+		AppId:   app.ID(),
+		RegType: regtype.Rpc,
+		ServerInfo: regCenter.ServerInfo{
+			Id:      sockettype.TCP.String() + "-gateway",
+			Name:    "",
+			Type:    servertype.Tcp.String(),
+			EndType: s.et.String(),
+		},
+	}
+	s.wssGwRegInfo = &regCenter.RegInfo{
+		AppId:   app.ID(),
+		RegType: regtype.Rpc,
+		ServerInfo: regCenter.ServerInfo{
+			Id:      sockettype.WSS.String() + "-gateway",
+			Name:    "",
+			Type:    servertype.Wss.String(),
+			EndType: s.et.String(),
+		},
 	}
 
 	ss := rpc2.New(app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
@@ -162,6 +190,10 @@ func (s *Handler) Run(failedCb func(error)) {
 		s.logger.Info(docDesc + "socket doc url=" + s.ds.DocUrl())
 		s.ds.SyncStart(failedCb)
 	}
+	if err := s.watch(s.app.Register()); err != nil {
+		failedCb(err)
+		return
+	}
 	if s.rs != nil {
 		s.rs.Run(failedCb)
 	}
@@ -210,4 +242,46 @@ func (s *Handler) debug(msg string) {
 
 func (s *Handler) msg(msg ...string) string {
 	return utils.ToStr("Socket Handler[", s.name, "] ", utils.ToStr(msg...))
+}
+
+func (s *Handler) watch(register regCenter.Register) error {
+	if register == nil {
+		return nil
+	}
+	// watch tcp gateway
+	tcpGwPrefix := s.tcpGwRegInfo.Prefix()
+	err := register.Watch(s.app.Context(), tcpGwPrefix, func(key string, val string, isDel bool) {
+		segments := strings.Split(key, "/")
+		host := segments[len(segments)-1]
+		if isDel {
+			s.debug(utils.ToStr("tcp gateway [", host, "] leaved"))
+			s.tpm.Rm("gateway", host)
+		} else {
+			s.debug(utils.ToStr("tcp gateway [", host, "] added"))
+			s.tpm.Add("gateway", host)
+		}
+	})
+	if err != nil {
+		return err
+	}
+	wssGwPrefix := s.wssGwRegInfo.Prefix()
+	return register.Watch(s.app.Context(), wssGwPrefix, func(key string, val string, isDel bool) {
+		segments := strings.Split(key, "/")
+		host := segments[len(segments)-1]
+		if isDel {
+			s.debug(utils.ToStr("wss gateway [", host, "] leaved"))
+			s.wpm.Rm("gateway", host)
+		} else {
+			s.debug(utils.ToStr("wss gateway [", host, "] added"))
+			s.wpm.Add("gateway", host)
+		}
+	})
+}
+
+func (s *Handler) TcpGateway() *impl.Gateway {
+	return s.tgw
+}
+
+func (s *Handler) WssGateway() *impl.Gateway {
+	return s.wgw
 }
