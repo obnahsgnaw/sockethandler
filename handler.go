@@ -94,7 +94,7 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 		},
 	}
 
-	ss := rpc2.New(app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
+	ss := rpc2.New(app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s), rpc2.RegEnable())
 	ss.RegisterService(rpc2.ServiceInfo{
 		Desc: handlerv1.HandlerService_ServiceDesc,
 		Impl: impl.NewHandlerService(s.am, s.logger.Named("handle")),
