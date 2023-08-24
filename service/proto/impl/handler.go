@@ -65,7 +65,7 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	// response data pack
-	resp, err := s.dateBuilderProvider.Provider(codec.Name(q.Format)).Pack(respData)
+	resp, err := s.dateBuilderProvider.Provider(toCodecName(q.Format)).Pack(respData)
 	if err != nil {
 		s.logger.Error("handle response data pack failed, err=" + err.Error())
 		return nil, status.Error(codes.Internal, err.Error())
