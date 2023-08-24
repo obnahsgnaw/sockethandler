@@ -43,12 +43,29 @@ type Handler struct {
 	err          error
 }
 
-func New(app *application.Application, module, subModule, name string, et endtype.EndType, st sockettype.SocketType, rpcHost url.Host) *Handler {
+func sct2hdt(st sockettype.SocketType) (sst servertype.ServerType) {
+	switch st {
+	case sockettype.TCP, sockettype.TCP4, sockettype.TCP6:
+		sst = servertype.TcpHdl
+		break
+	case sockettype.WSS:
+		sst = servertype.WssHdl
+		break
+	case sockettype.UDP, sockettype.UDP4, sockettype.UDP6:
+		sst = servertype.UdpHdl
+		break
+	default:
+		panic("trans socket type to server type failed")
+	}
+	return
+}
+
+func New(app *application.Application, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, rpcHost url.Host) *Handler {
 	s := &Handler{
 		id:   module + "-" + subModule,
 		name: name,
-		st:   servertype.Hdl,
-		sct:  st,
+		st:   sct2hdt(sct),
+		sct:  sct,
 		et:   et,
 		app:  app,
 		am:   action.NewManager(),
