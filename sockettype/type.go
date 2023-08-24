@@ -9,7 +9,11 @@ func (s SocketType) String() string {
 
 // 服务类型定义
 const (
-	TCP SocketType = "tcp"
-	UDP SocketType = "udp"
-	WSS SocketType = "wss"
+	TCP  SocketType = "tcp"
+	TCP4 SocketType = "tcp4"
+	TCP6 SocketType = "tcp6"
+	UDP  SocketType = "udp"
+	UDP4 SocketType = "udp4"
+	UDP6 SocketType = "udp6"
+	WSS  SocketType = "wss"
 )
