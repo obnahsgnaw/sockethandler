@@ -22,6 +22,17 @@ func NewHandlerService(manager *action.Manager, logger *zap.Logger) *HandlerServ
 	return &HandlerService{manager: manager, logger: logger, dateBuilderProvider: codec.NewDbp()}
 }
 
+func toCodecName(format handlerv1.HandleRequest_Format) codec.Name {
+	if format == handlerv1.HandleRequest_Json {
+		return codec.Json
+	}
+	if format == handlerv1.HandleRequest_Proto {
+		return codec.Proto
+	}
+
+	return codec.Proto
+}
+
 func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest) (*handlerv1.HandleResponse, error) {
 	if s.logger != nil {
 		s.logger.Debug("handle request", zap.Uint32("action_id", q.ActionId), zap.String("gateway", q.Gateway), zap.Int64("fd", q.Fd), zap.String("bind_id", q.Id), zap.String("bind_type", q.Type), zap.ByteString("data", q.Package), zap.String("format", q.Format.String()))
@@ -35,7 +46,7 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 	s.logger.Info("handle action:" + act.String())
 	// unpack data
 	data := structure()
-	if err := s.dateBuilderProvider.Provider(codec.Name(q.Format)).Unpack(q.Package, data); err != nil {
+	if err := s.dateBuilderProvider.Provider(toCodecName(q.Format)).Unpack(q.Package, data); err != nil {
 		s.logger.Error("unpack data failed, err=" + err.Error())
 		return nil, status.Error(codes.InvalidArgument, "data unpack failed, err="+err.Error())
 	}
