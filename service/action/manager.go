@@ -21,6 +21,12 @@ type HandlerReq struct {
 	Id      string
 	Type    string
 	Data    codec.DataPtr
+	User    *User
+}
+
+type User struct {
+	Id   uint32
+	Name string
 }
 
 type Handler func(context.Context, *HandlerReq) (codec.Action, codec.DataPtr, error)
