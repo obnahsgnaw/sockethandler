@@ -1,4 +1,12 @@
 
+<a name="v0.9.0"></a>
+## [v0.9.0](https://8.140.161.172/wangsb/wgateway/compare/v0.8.0...v0.9.0) (2023-09-01)
+
+### Features
+
+* **proto:** added unbind method and handler added user
+
+
 <a name="v0.8.0"></a>
 ## [v0.8.0](https://8.140.161.172/wangsb/wgateway/compare/v0.7.0...v0.8.0) (2023-08-24)
 
