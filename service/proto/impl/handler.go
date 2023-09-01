@@ -46,20 +46,29 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 	s.logger.Info("handle action:" + act.String())
 	// unpack data
 	data := structure()
-	if err := s.dateBuilderProvider.Provider(toCodecName(q.Format)).Unpack(q.Package, data); err != nil {
-		s.logger.Error("unpack data failed, err=" + err.Error())
-		return nil, status.Error(codes.InvalidArgument, "data unpack failed, err="+err.Error())
+	if data != nil {
+		if err := s.dateBuilderProvider.Provider(toCodecName(q.Format)).Unpack(q.Package, data); err != nil {
+			s.logger.Error("unpack data failed, err=" + err.Error())
+			return nil, status.Error(codes.InvalidArgument, "data unpack failed, err="+err.Error())
+		}
 	}
 
 	// handle
-	respAction, respData, err := handler(ctx, &action.HandlerReq{
+	req := &action.HandlerReq{
 		Action:  act,
 		Gateway: q.Gateway,
 		Fd:      q.Fd,
 		Id:      q.Id,
 		Type:    q.Type,
 		Data:    data,
-	})
+	}
+	if q.User != nil {
+		req.User = &action.User{
+			Id:   uint32(int(q.User.Id)),
+			Name: q.User.Name,
+		}
+	}
+	respAction, respData, err := handler(ctx, req)
 	if err != nil {
 		s.logger.Error("handle failed, err=" + err.Error())
 		return nil, status.Error(codes.Internal, err.Error())
