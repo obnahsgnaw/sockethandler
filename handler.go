@@ -152,7 +152,7 @@ func (s *Handler) Logger() *zap.Logger {
 }
 
 // WithDocServer with doc server
-func (s *Handler) WithDocServer(port int, path string, provider func() ([]byte, error)) {
+func (s *Handler) WithDocServer(port int, path string, provider func() ([]byte, error), public bool) {
 	config := &DocConfig{
 		id:      s.id,
 		endType: s.et,
@@ -168,6 +168,7 @@ func (s *Handler) WithDocServer(port int, path string, provider func() ([]byte, 
 			socketType: s.sct,
 			Path:       path,
 			Title:      s.name,
+			Public:     public,
 			Provider:   provider,
 		},
 	}
