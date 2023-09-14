@@ -34,7 +34,7 @@ func main() {
 
 	s.WithDocServer(8011, "/tcp", func() ([]byte, error) {
 		return []byte("ok"), nil
-	})
+	}, false)
 
 	s.Listen(codec.Action{
 		Id:   101,
