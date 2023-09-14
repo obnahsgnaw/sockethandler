@@ -65,8 +65,8 @@ func NewDocServer(clusterId string, config *DocConfig) *DocServer {
 		Ttl:  config.RegTtl,
 		Values: map[string]string{
 			"title":  config.Doc.Title,
-			"public": public,
 			"url":    s.DocUrl(),
+			"public": public,
 		},
 	}
 
