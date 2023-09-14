@@ -21,6 +21,7 @@ type DocConfig struct {
 
 type DocItem struct {
 	Title      string
+	Public     bool
 	socketType sockettype.SocketType // 通过上层应用来设置
 	Path       string
 	Provider   func() ([]byte, error)
@@ -46,6 +47,10 @@ func NewDocServer(clusterId string, config *DocConfig) *DocServer {
 		config: config,
 		engine: e,
 	}
+	public := "0"
+	if config.Doc.Public {
+		public = "1"
+	}
 	s.regInfo = &regCenter.RegInfo{
 		AppId:   clusterId,
 		RegType: regtype.Doc,
@@ -59,8 +64,9 @@ func NewDocServer(clusterId string, config *DocConfig) *DocServer {
 		Val:  "",
 		Ttl:  config.RegTtl,
 		Values: map[string]string{
-			"title": config.Doc.Title,
-			"url":   s.DocUrl(),
+			"title":  config.Doc.Title,
+			"public": public,
+			"url":    s.DocUrl(),
 		},
 	}
 
