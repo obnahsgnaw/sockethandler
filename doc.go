@@ -24,6 +24,7 @@ type DocItem struct {
 	Public     bool
 	socketType sockettype.SocketType // 通过上层应用来设置
 	Path       string
+	Prefix     string
 	Provider   func() ([]byte, error)
 }
 
@@ -78,7 +79,7 @@ func (s *DocServer) RegInfo() *regCenter.RegInfo {
 }
 
 func (s *DocServer) initDocRoute() {
-	s.engine.GET(s.config.Doc.Path, func(c *gin.Context) {
+	hd := func(c *gin.Context) {
 		if s.config.Doc.Provider == nil {
 			c.Status(http.StatusOK)
 			_, _ = c.Writer.Write([]byte("no doc provider"))
@@ -92,7 +93,11 @@ func (s *DocServer) initDocRoute() {
 			c.Status(http.StatusOK)
 			_, _ = c.Writer.Write(tmpl)
 		}
-	})
+	}
+	s.engine.GET(s.config.Doc.Path, hd)
+	if s.config.Doc.Prefix != "" {
+		s.engine.GET(s.config.Doc.Prefix+"/"+s.config.Doc.Path, hd)
+	}
 }
 
 func (s *DocServer) Start() error {
