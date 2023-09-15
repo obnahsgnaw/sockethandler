@@ -23,6 +23,8 @@ import (
 
 type Handler struct {
 	id           string
+	module       string
+	subModule    string
 	name         string
 	st           servertype.ServerType
 	sct          sockettype.SocketType
@@ -59,19 +61,37 @@ func sct2hdt(st sockettype.SocketType) (sst servertype.ServerType) {
 	}
 	return
 }
+func sct2st(st sockettype.SocketType) (sst servertype.ServerType) {
+	switch st {
+	case sockettype.TCP, sockettype.TCP4, sockettype.TCP6:
+		sst = servertype.Tcp
+		break
+	case sockettype.WSS:
+		sst = servertype.Wss
+		break
+	case sockettype.UDP, sockettype.UDP4, sockettype.UDP6:
+		sst = servertype.Udp
+		break
+	default:
+		panic("trans socket type to server type failed")
+	}
+	return
+}
 
 func New(app *application.Application, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, rpcHost url.Host) *Handler {
 	s := &Handler{
-		id:   module + "-" + subModule,
-		name: name,
-		st:   sct2hdt(sct),
-		sct:  sct,
-		et:   et,
-		app:  app,
-		am:   action.NewManager(),
-		tpm:  rpc.NewManager(),
-		wpm:  rpc.NewManager(),
-		host: rpcHost,
+		id:        module + "-" + subModule,
+		module:    module,
+		subModule: subModule,
+		name:      name,
+		st:        sct2hdt(sct),
+		sct:       sct,
+		et:        et,
+		app:       app,
+		am:        action.NewManager(),
+		tpm:       rpc.NewManager(),
+		wpm:       rpc.NewManager(),
+		host:      rpcHost,
 	}
 	s.tgw = impl.NewGateway(app.Context(), s.tpm)
 	s.wgw = impl.NewGateway(app.Context(), s.wpm)
@@ -152,7 +172,10 @@ func (s *Handler) Logger() *zap.Logger {
 }
 
 // WithDocServer with doc server
-func (s *Handler) WithDocServer(port int, path string, provider func() ([]byte, error), public bool) {
+func (s *Handler) WithDocServer(port int, docProxyPrefix string, provider func() ([]byte, error), public bool) {
+	if docProxyPrefix != "" {
+		docProxyPrefix = "/" + strings.Trim(docProxyPrefix, "/")
+	}
 	config := &DocConfig{
 		id:      s.id,
 		endType: s.et,
@@ -166,7 +189,8 @@ func (s *Handler) WithDocServer(port int, path string, provider func() ([]byte, 
 		RegTtl: s.app.RegTtl(),
 		Doc: DocItem{
 			socketType: s.sct,
-			Path:       path,
+			Path:       "/docs/" + s.module + "/" + s.subModule + "." + sct2st(s.sct).String() + "doc", // the same with the socket gateway
+			Prefix:     docProxyPrefix,
 			Title:      s.name,
 			Public:     public,
 			Provider:   provider,
