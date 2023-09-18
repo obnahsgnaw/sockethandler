@@ -3,10 +3,10 @@ package impl
 import (
 	"context"
 	"github.com/obnahsgnaw/rpc/pkg/rpc"
+	bindv1 "github.com/obnahsgnaw/socketapi/gen/bind/v1"
+	groupv1 "github.com/obnahsgnaw/socketapi/gen/group/v1"
+	messagev1 "github.com/obnahsgnaw/socketapi/gen/message/v1"
 	"github.com/obnahsgnaw/sockethandler/service/codec"
-	bindv1 "github.com/obnahsgnaw/sockethandler/service/proto/gen/bind/v1"
-	groupv1 "github.com/obnahsgnaw/sockethandler/service/proto/gen/group/v1"
-	messagev1 "github.com/obnahsgnaw/sockethandler/service/proto/gen/message/v1"
 )
 
 type Gateway struct {
