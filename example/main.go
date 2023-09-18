@@ -9,8 +9,8 @@ import (
 	"github.com/obnahsgnaw/application/pkg/url"
 	"github.com/obnahsgnaw/sockethandler"
 	"github.com/obnahsgnaw/sockethandler/service/action"
-	"github.com/obnahsgnaw/sockethandler/service/codec"
 	"github.com/obnahsgnaw/sockethandler/sockettype"
+	"github.com/obnahsgnaw/socketutil/codec"
 	"log"
 	"time"
 )
