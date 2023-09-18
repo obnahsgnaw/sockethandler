@@ -2,9 +2,9 @@ package impl
 
 import (
 	"context"
+	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
 	"github.com/obnahsgnaw/sockethandler/service/action"
 	"github.com/obnahsgnaw/sockethandler/service/codec"
-	handlerv1 "github.com/obnahsgnaw/sockethandler/service/proto/gen/handler/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
