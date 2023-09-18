@@ -14,9 +14,9 @@ import (
 	"github.com/obnahsgnaw/rpc/pkg/rpc"
 	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
 	"github.com/obnahsgnaw/sockethandler/service/action"
-	"github.com/obnahsgnaw/sockethandler/service/codec"
 	"github.com/obnahsgnaw/sockethandler/service/proto/impl"
 	"github.com/obnahsgnaw/sockethandler/sockettype"
+	"github.com/obnahsgnaw/socketutil/codec"
 	"go.uber.org/zap"
 	"strings"
 )

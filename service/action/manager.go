@@ -2,7 +2,7 @@ package action
 
 import (
 	"context"
-	"github.com/obnahsgnaw/sockethandler/service/codec"
+	"github.com/obnahsgnaw/socketutil/codec"
 	"sync"
 )
 

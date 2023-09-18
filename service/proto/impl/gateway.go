@@ -6,7 +6,7 @@ import (
 	bindv1 "github.com/obnahsgnaw/socketapi/gen/bind/v1"
 	groupv1 "github.com/obnahsgnaw/socketapi/gen/group/v1"
 	messagev1 "github.com/obnahsgnaw/socketapi/gen/message/v1"
-	"github.com/obnahsgnaw/sockethandler/service/codec"
+	"github.com/obnahsgnaw/socketutil/codec"
 )
 
 type Gateway struct {

@@ -4,7 +4,7 @@ import (
 	"context"
 	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
 	"github.com/obnahsgnaw/sockethandler/service/action"
-	"github.com/obnahsgnaw/sockethandler/service/codec"
+	"github.com/obnahsgnaw/socketutil/codec"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
