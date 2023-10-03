@@ -42,7 +42,7 @@ type Handler struct {
 	wssGwRegInfo *regCenter.RegInfo // wss gateway
 	tgw          *impl.Gateway
 	wgw          *impl.Gateway
-	err          error
+	errs         []error
 }
 
 func sct2hdt(st sockettype.SocketType) (sst servertype.ServerType) {
@@ -79,6 +79,7 @@ func sct2st(st sockettype.SocketType) (sst servertype.ServerType) {
 }
 
 func New(app *application.Application, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, rpcHost url.Host) *Handler {
+	var err error
 	s := &Handler{
 		id:        module + "-" + subModule,
 		module:    module,
@@ -95,7 +96,11 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 	}
 	s.tgw = impl.NewGateway(app.Context(), s.tpm)
 	s.wgw = impl.NewGateway(app.Context(), s.wpm)
-	s.logger, s.err = logger.New(utils.ToStr("Hdl[", s.et.String(), "-", s.sct.String(), "-", module+"-"+subModule, "]"), s.app.LogConfig(), s.app.Debugger().Debug())
+	if s.st == "" {
+		s.addErr(errors.New(s.msg("type not support")))
+	}
+	s.logger, err = logger.New(utils.ToStr("Hdl[", s.et.String(), "][", s.sct.String(), "-", module+"-"+subModule, "]"), s.app.LogConfig(), s.app.Debugger().Debug())
+	s.addErr(err)
 	s.regInfo = &regCenter.RegInfo{
 		AppId:   s.app.ID(),
 		RegType: regtype.Rpc,
@@ -197,7 +202,7 @@ func (s *Handler) WithDocServer(port int, docProxyPrefix string, provider func()
 		},
 	}
 	s.ds = NewDocServer(s.app.ID(), config)
-	s.debug("withed handler doc server")
+	s.debug("doc server enabled")
 }
 
 // Release resource
@@ -209,25 +214,23 @@ func (s *Handler) Release() {
 		_ = s.register(s.app.Register(), false)
 	}
 	_ = s.logger.Sync()
+	s.debug("released")
 }
 
 // Run start run
 func (s *Handler) Run(failedCb func(error)) {
-	if s.err != nil {
-		failedCb(s.err)
+	if s.errs != nil {
+		failedCb(s.errs[0])
 		return
 	}
-	if s.st == "" {
-		failedCb(errors.New(s.msg("type not support")))
-		return
-	}
+	s.debug("start running...")
 	if s.app.Register() != nil {
 		if err := s.register(s.app.Register(), true); err != nil {
-			failedCb(utils.NewWrappedError(s.msg("register failed"), err))
+			failedCb(s.handlerError(s.msg("register failed"), err))
 		}
 	}
 	if s.ds != nil {
-		docDesc := utils.ToStr("doc[", s.ds.config.Origin.Host.String(), "] ")
+		docDesc := utils.ToStr("doc server [", s.ds.config.Origin.Host.String(), "] ")
 		s.logger.Info(docDesc + "start and serving...")
 		s.logger.Info(docDesc + "socket doc url=" + s.ds.DocUrl())
 		s.ds.SyncStart(failedCb)
@@ -239,6 +242,9 @@ func (s *Handler) Run(failedCb func(error)) {
 	if s.rs != nil {
 		s.rs.Run(failedCb)
 	}
+}
+func (s *Handler) handlerError(msg string, err error) error {
+	return utils.TitledError(utils.ToStr("handler[", s.name, "] error"), msg, err)
 }
 
 // Listen action
@@ -279,6 +285,12 @@ func (s *Handler) register(register regCenter.Register, reg bool) error {
 func (s *Handler) debug(msg string) {
 	if s.app.Debugger().Debug() {
 		s.logger.Debug(msg)
+	}
+}
+
+func (s *Handler) addErr(err error) {
+	if err != nil {
+		s.errs = append(s.errs, err)
 	}
 }
 
