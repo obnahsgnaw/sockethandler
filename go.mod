@@ -7,7 +7,7 @@ require (
 	github.com/obnahsgnaw/application v0.15.1
 	github.com/obnahsgnaw/rpc v0.4.2
 	github.com/obnahsgnaw/socketapi v0.3.1
-	github.com/obnahsgnaw/socketutil v0.4.0
+	github.com/obnahsgnaw/socketutil v0.5.0
 	go.uber.org/zap v1.23.0
 	google.golang.org/grpc v1.55.0
 )
