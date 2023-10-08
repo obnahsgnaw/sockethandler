@@ -4,9 +4,12 @@ import (
 	"context"
 	"github.com/obnahsgnaw/rpc/pkg/rpc"
 	bindv1 "github.com/obnahsgnaw/socketapi/gen/bind/v1"
+	connv1 "github.com/obnahsgnaw/socketapi/gen/conninfo/v1"
 	groupv1 "github.com/obnahsgnaw/socketapi/gen/group/v1"
 	messagev1 "github.com/obnahsgnaw/socketapi/gen/message/v1"
 	"github.com/obnahsgnaw/socketutil/codec"
+	"net"
+	"time"
 )
 
 type Gateway struct {
@@ -80,6 +83,51 @@ func (s *Gateway) BindExistAll(id, idType string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+type ConnInfo struct {
+	LocalAddr  net.Addr
+	RemoteAddr net.Addr
+	ConnectAt  time.Time
+	SocketType string
+	Uid        uint32
+	UName      string
+}
+type Addr struct {
+	net  string
+	addr string
+}
+
+func (a Addr) Network() string {
+	return a.net
+}
+func (a Addr) String() string {
+	return a.addr
+}
+
+func (s *Gateway) ConnInfo(gw string, fd int64) (ConnInfo, error) {
+	cc, err := s.m.GetConn("gateway", gw, 0)
+	if err != nil {
+		return ConnInfo{}, err
+	}
+	c := connv1.NewConnServiceClient(cc)
+
+	resp, err := c.Info(s.ctx, &connv1.ConnInfoRequest{
+		Fd: fd,
+	})
+	if err != nil {
+		return ConnInfo{}, err
+	}
+
+	t, _ := time.Parse("2006-01-02 15:04:05", resp.ConnectAt)
+	return ConnInfo{
+		LocalAddr:  Addr{net: resp.LocalNetwork, addr: resp.LocalAddr},
+		RemoteAddr: Addr{net: resp.RemoteNetwork, addr: resp.RemoteAddr},
+		ConnectAt:  t,
+		SocketType: resp.SocketType,
+		Uid:        resp.Uid,
+		UName:      resp.Uname,
+	}, nil
 }
 
 func (s *Gateway) SendFdMessage(gw string, fd int64, act codec.Action, data codec.DataPtr) error {

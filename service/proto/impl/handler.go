@@ -2,6 +2,7 @@ package impl
 
 import (
 	"context"
+	"github.com/obnahsgnaw/application/pkg/utils"
 	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
 	"github.com/obnahsgnaw/sockethandler/service/action"
 	"github.com/obnahsgnaw/socketutil/codec"
@@ -22,11 +23,11 @@ func NewHandlerService(manager *action.Manager, logger *zap.Logger) *HandlerServ
 	return &HandlerService{manager: manager, logger: logger, dateBuilderProvider: codec.NewDbp()}
 }
 
-func toCodecName(format handlerv1.HandleRequest_Format) codec.Name {
-	if format == handlerv1.HandleRequest_Json {
+func toCodecName(format string) codec.Name {
+	if format == "json" {
 		return codec.Json
 	}
-	if format == handlerv1.HandleRequest_Proto {
+	if format == "proto" {
 		return codec.Proto
 	}
 
@@ -35,7 +36,7 @@ func toCodecName(format handlerv1.HandleRequest_Format) codec.Name {
 
 func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest) (*handlerv1.HandleResponse, error) {
 	if s.logger != nil {
-		s.logger.Debug("handle request", zap.Uint32("action_id", q.ActionId), zap.String("gateway", q.Gateway), zap.Int64("fd", q.Fd), zap.String("bind_id", q.Id), zap.String("bind_type", q.Type), zap.ByteString("data", q.Package), zap.String("format", q.Format.String()))
+		s.logger.Debug("handle request", zap.Uint32("action_id", q.ActionId), zap.String("gateway", q.Gateway), zap.Int64("fd", q.Fd), zap.String("bind_id", utils.ToJson(q.BindIds)), zap.ByteString("data", q.Package), zap.String("format", q.Format))
 	}
 	// fetch action handler
 	act, structure, handler, ok := s.manager.GetHandler(codec.ActionId(q.ActionId))
@@ -54,20 +55,15 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 	}
 
 	// handle
-	req := &action.HandlerReq{
-		Action:  act,
-		Gateway: q.Gateway,
-		Fd:      q.Fd,
-		Id:      q.Id,
-		Type:    q.Type,
-		Data:    data,
-	}
+	var u *action.User
 	if q.User != nil {
-		req.User = &action.User{
+		u = &action.User{
 			Id:   uint32(int(q.User.Id)),
 			Name: q.User.Name,
 		}
 	}
+	req := action.NewHandlerReq(q.Gateway, act, q.Fd, u, data, q.BindIds)
+
 	respAction, respData, err := handler(ctx, req)
 	if err != nil {
 		s.logger.Error("handle failed, err=" + err.Error())
