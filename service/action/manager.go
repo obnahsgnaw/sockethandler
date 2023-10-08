@@ -18,10 +18,25 @@ type HandlerReq struct {
 	Action  codec.Action
 	Gateway string
 	Fd      int64
-	Id      string
-	Type    string
+	idMap   map[string]string
 	Data    codec.DataPtr
 	User    *User
+}
+
+func (q *HandlerReq) BondId(typ string) (string, bool) {
+	id, ok := q.idMap[typ]
+	return id, ok
+}
+
+func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec.DataPtr, ids map[string]string) *HandlerReq {
+	return &HandlerReq{
+		Action:  action,
+		Gateway: gw,
+		Fd:      fd,
+		idMap:   ids,
+		Data:    data,
+		User:    u,
+	}
 }
 
 type User struct {
