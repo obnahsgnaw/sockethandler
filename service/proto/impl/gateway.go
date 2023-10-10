@@ -41,7 +41,7 @@ func (s *Gateway) BindId(gw string, fd int64, id, idType string) error {
 	return err
 }
 
-func (s *Gateway) UnBindId(gw string, fd int64) error {
+func (s *Gateway) UnBindId(gw string, fd int64, idType, id string) error {
 	cc, err := s.m.GetConn("gateway", gw, 0)
 	if err != nil {
 		return err
@@ -49,7 +49,9 @@ func (s *Gateway) UnBindId(gw string, fd int64) error {
 	c := bindv1.NewBindServiceClient(cc)
 
 	_, err = c.UnBindId(s.ctx, &bindv1.UnBindIdRequest{
-		Fd: fd,
+		Fd:     fd,
+		Id:     id,
+		IdType: idType,
 	})
 	return err
 }
