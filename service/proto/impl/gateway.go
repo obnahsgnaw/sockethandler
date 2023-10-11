@@ -26,7 +26,7 @@ func NewGateway(ctx context.Context, m *rpc.Manager) *Gateway {
 	}
 }
 
-func (s *Gateway) BindId(gw string, fd int64, id, idType string) error {
+func (s *Gateway) BindId(gw string, fd int64, id ...*bindv1.Id) error {
 	cc, err := s.m.GetConn("gateway", gw, 0)
 	if err != nil {
 		return err
@@ -34,14 +34,13 @@ func (s *Gateway) BindId(gw string, fd int64, id, idType string) error {
 	c := bindv1.NewBindServiceClient(cc)
 
 	_, err = c.BindId(s.ctx, &bindv1.BindIdRequest{
-		Fd:     fd,
-		Id:     id,
-		IdType: idType,
+		Fd:  fd,
+		Ids: id,
 	})
 	return err
 }
 
-func (s *Gateway) UnBindId(gw string, fd int64, idType, id string) error {
+func (s *Gateway) UnBindId(gw string, fd int64, typ ...string) error {
 	cc, err := s.m.GetConn("gateway", gw, 0)
 	if err != nil {
 		return err
@@ -49,14 +48,13 @@ func (s *Gateway) UnBindId(gw string, fd int64, idType, id string) error {
 	c := bindv1.NewBindServiceClient(cc)
 
 	_, err = c.UnBindId(s.ctx, &bindv1.UnBindIdRequest{
-		Fd:     fd,
-		Id:     id,
-		IdType: idType,
+		Fd:    fd,
+		Types: typ,
 	})
 	return err
 }
 
-func (s *Gateway) BindExist(gw string, id, idType string) (bool, error) {
+func (s *Gateway) BindExist(gw string, id, typ string) (bool, error) {
 	cc, err := s.m.GetConn("gateway", gw, 0)
 	if err != nil {
 		return false, err
@@ -64,8 +62,10 @@ func (s *Gateway) BindExist(gw string, id, idType string) (bool, error) {
 	c := bindv1.NewBindServiceClient(cc)
 
 	p, err := c.BindExist(s.ctx, &bindv1.BindExistRequest{
-		Id:     id,
-		IdType: idType,
+		Id: &bindv1.Id{
+			Typ: typ,
+			Id:  id,
+		},
 	})
 	if err != nil {
 		return false, err
