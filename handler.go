@@ -303,7 +303,7 @@ func (s *Handler) watch(register regCenter.Register) error {
 		return nil
 	}
 	// watch tcp gateway
-	tcpGwPrefix := s.tcpGwRegInfo.Prefix()
+	tcpGwPrefix := s.tcpGwRegInfo.Prefix() + "/"
 	err := register.Watch(s.app.Context(), tcpGwPrefix, func(key string, val string, isDel bool) {
 		segments := strings.Split(key, "/")
 		host := segments[len(segments)-1]
@@ -318,7 +318,7 @@ func (s *Handler) watch(register regCenter.Register) error {
 	if err != nil {
 		return err
 	}
-	wssGwPrefix := s.wssGwRegInfo.Prefix()
+	wssGwPrefix := s.wssGwRegInfo.Prefix() + "/"
 	return register.Watch(s.app.Context(), wssGwPrefix, func(key string, val string, isDel bool) {
 		segments := strings.Split(key, "/")
 		host := segments[len(segments)-1]
