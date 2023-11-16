@@ -18,6 +18,7 @@ import (
 	"github.com/obnahsgnaw/sockethandler/sockettype"
 	"github.com/obnahsgnaw/socketutil/codec"
 	"go.uber.org/zap"
+	"strconv"
 	"strings"
 )
 
@@ -43,39 +44,7 @@ type Handler struct {
 	tgw          *impl.Gateway
 	wgw          *impl.Gateway
 	errs         []error
-}
-
-func sct2hdt(st sockettype.SocketType) (sst servertype.ServerType) {
-	switch st {
-	case sockettype.TCP, sockettype.TCP4, sockettype.TCP6:
-		sst = servertype.TcpHdl
-		break
-	case sockettype.WSS:
-		sst = servertype.WssHdl
-		break
-	case sockettype.UDP, sockettype.UDP4, sockettype.UDP6:
-		sst = servertype.UdpHdl
-		break
-	default:
-		panic("trans socket type to server type failed")
-	}
-	return
-}
-func sct2st(st sockettype.SocketType) (sst servertype.ServerType) {
-	switch st {
-	case sockettype.TCP, sockettype.TCP4, sockettype.TCP6:
-		sst = servertype.Tcp
-		break
-	case sockettype.WSS:
-		sst = servertype.Wss
-		break
-	case sockettype.UDP, sockettype.UDP4, sockettype.UDP6:
-		sst = servertype.Udp
-		break
-	default:
-		panic("trans socket type to server type failed")
-	}
-	return
+	flbNum       int
 }
 
 func New(app *application.Application, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, rpcHost url.Host) *Handler {
@@ -85,7 +54,7 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 		module:    module,
 		subModule: subModule,
 		name:      name,
-		st:        sct2hdt(sct),
+		st:        sct.ToHandlerType(),
 		sct:       sct,
 		et:        et,
 		app:       app,
@@ -194,7 +163,7 @@ func (s *Handler) WithDocServer(port int, docProxyPrefix string, provider func()
 		RegTtl: s.app.RegTtl(),
 		Doc: DocItem{
 			socketType: s.sct,
-			Path:       "/docs/" + s.module + "/" + s.subModule + "." + sct2st(s.sct).String() + "doc", // the same with the socket gateway
+			Path:       "/docs/" + s.module + "/" + s.subModule + "." + s.sct.ToServerType().String() + "doc", // the same with the socket gateway
 			Prefix:     docProxyPrefix,
 			Title:      s.name,
 			Public:     public,
@@ -243,6 +212,7 @@ func (s *Handler) Run(failedCb func(error)) {
 		s.rs.Run(failedCb)
 	}
 }
+
 func (s *Handler) handlerError(msg string, err error) error {
 	return utils.TitledError(utils.ToStr("handler[", s.name, "] error"), msg, err)
 }
@@ -268,7 +238,11 @@ func (s *Handler) register(register regCenter.Register, reg bool) error {
 		prefix := s.regInfo.Prefix()
 		key := strings.TrimPrefix(strings.Join([]string{prefix, s.regInfo.ServerInfo.Id, s.regInfo.Host, act.Id.String()}, "/"), "/")
 		if reg {
-			if err := register.Register(s.app.Context(), key, act.Name, s.regInfo.Ttl); err != nil {
+			val := act.Name
+			if s.flbNum > 0 {
+				val = val + "|" + strconv.Itoa(s.flbNum)
+			}
+			if err := register.Register(s.app.Context(), key, val, s.regInfo.Ttl); err != nil {
 				return err
 			}
 		} else {
@@ -338,4 +312,11 @@ func (s *Handler) TcpGateway() *impl.Gateway {
 
 func (s *Handler) WssGateway() *impl.Gateway {
 	return s.wgw
+}
+
+// SetWssActionFlbNum 用于解决 wss的action能负载到和tcp同一个服务上去, wss服务可用,(最好就是tcp的端口， 这样tcp负载算法输入和wss输入就一样了)
+func (s *Handler) SetWssActionFlbNum(num int) {
+	if s.sct.ToServerType() == servertype.Wss && num > 0 {
+		s.flbNum = num
+	}
 }
