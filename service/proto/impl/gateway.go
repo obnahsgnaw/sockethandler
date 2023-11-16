@@ -7,6 +7,7 @@ import (
 	connv1 "github.com/obnahsgnaw/socketapi/gen/conninfo/v1"
 	groupv1 "github.com/obnahsgnaw/socketapi/gen/group/v1"
 	messagev1 "github.com/obnahsgnaw/socketapi/gen/message/v1"
+	slbv1 "github.com/obnahsgnaw/socketapi/gen/slb/v1"
 	"github.com/obnahsgnaw/socketutil/codec"
 	"net"
 	"time"
@@ -259,4 +260,19 @@ func (s *Gateway) BroadcastAll(group string, act codec.Action, data codec.DataPt
 	for _, gw := range s.m.Get("gateway") {
 		_ = s.Broadcast(gw, group, act, data, id)
 	}
+}
+
+func (s *Gateway) SetActionSlb(gw string, fd, action, slb int64) error {
+	cc, err := s.m.GetConn("gateway", gw, 0)
+	if err != nil {
+		return err
+	}
+	c := slbv1.NewSlbServiceClient(cc)
+
+	_, err = c.SetActionSlb(s.ctx, &slbv1.ActionSlbRequest{
+		Fd:     fd,
+		Action: action,
+		Sbl:    slb,
+	})
+	return err
 }
