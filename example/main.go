@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/obnahsgnaw/application"
 	"github.com/obnahsgnaw/application/endtype"
+	"github.com/obnahsgnaw/application/pkg/logging/logger"
 	"github.com/obnahsgnaw/application/pkg/url"
 	"github.com/obnahsgnaw/sockethandler"
 	"github.com/obnahsgnaw/sockethandler/service/action"
@@ -13,12 +14,20 @@ import (
 )
 
 func main() {
-	app := application.New(application.NewCluster("dev", "Dev"), "socketHandlerDemo")
+	app := application.New(application.NewCluster("dev", "Dev"), "demo")
 	defer app.Release()
 	app.With(application.Debug(func() bool {
 		return true
 	}))
 	app.With(application.EtcdRegister([]string{"127.0.0.1:2379"}, time.Second*5))
+	app.With(application.Logger(&logger.Config{
+		Dir:        "/Users/wangshanbo/Documents/Data/projects/sockethandler/out",
+		MaxSize:    5,
+		MaxBackup:  1,
+		MaxAge:     1,
+		Level:      "debug",
+		TraceLevel: "error",
+	}))
 
 	s := sockethandler.New(
 		app,
@@ -27,12 +36,12 @@ func main() {
 		"uav connect",
 		endtype.Frontend,
 		sockettype.TCP,
-		url.Host{Ip: "127.0.0.1", Port: 8010},
 	)
+	s.WithRpc(url.Host{Ip: "127.0.0.1", Port: 8010})
 
 	s.WithDocServer(8011, "/v1/doc/socket/tcp", func() ([]byte, error) {
 		return []byte("ok"), nil
-	}, false)
+	}, false, false)
 
 	s.Listen(codec.Action{
 		Id:   101,

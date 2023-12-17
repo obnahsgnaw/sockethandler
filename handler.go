@@ -1,7 +1,9 @@
 package sockethandler
 
 import (
+	"context"
 	"errors"
+	"github.com/gin-gonic/gin"
 	"github.com/obnahsgnaw/application"
 	"github.com/obnahsgnaw/application/endtype"
 	"github.com/obnahsgnaw/application/pkg/logging/logger"
@@ -18,6 +20,8 @@ import (
 	"github.com/obnahsgnaw/sockethandler/sockettype"
 	"github.com/obnahsgnaw/socketutil/codec"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -36,8 +40,11 @@ type Handler struct {
 	tpm          *rpc.Manager
 	wpm          *rpc.Manager
 	rs           *rpc2.Server
+	rsCus        bool
 	logger       *zap.Logger
 	ds           *DocServer
+	dsCus        bool
+	dsPrefixed   bool
 	regInfo      *regCenter.RegInfo // actions
 	tcpGwRegInfo *regCenter.RegInfo // tcp gateway
 	wssGwRegInfo *regCenter.RegInfo // wss gateway
@@ -45,9 +52,10 @@ type Handler struct {
 	wgw          *impl.Gateway
 	errs         []error
 	flbNum       int
+	actListeners []func(manager *action.Manager)
 }
 
-func New(app *application.Application, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, rpcHost url.Host) *Handler {
+func New(app *application.Application, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType) *Handler {
 	var err error
 	s := &Handler{
 		id:        module + "-" + subModule,
@@ -61,29 +69,34 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 		am:        action.NewManager(),
 		tpm:       rpc.NewManager(),
 		wpm:       rpc.NewManager(),
-		host:      rpcHost,
 	}
 	s.tgw = impl.NewGateway(app.Context(), s.tpm)
 	s.wgw = impl.NewGateway(app.Context(), s.wpm)
 	if s.st == "" {
-		s.addErr(errors.New(s.msg("type not support")))
+		s.addErr(s.handlerError("type invalid", errors.New("type not support")))
 	}
-	s.logger, err = logger.New(utils.ToStr("Hdl[", s.et.String(), "][", s.sct.String(), "-", module+"-"+subModule, "]"), s.app.LogConfig(), s.app.Debugger().Debug())
+	logCnf := logger.CopyCnfWithLevel(s.app.LogConfig())
+	if logCnf != nil {
+		logCnf.AddSubDir(filepath.Join(s.et.String(), utils.ToStr(s.st.String(), "-", s.id)))
+		logCnf.SetFilename(utils.ToStr(s.st.String(), "-", s.id))
+		logCnf.ReplaceTraceLevel(zap.NewAtomicLevelAt(zap.FatalLevel))
+	}
+	s.logger, err = logger.New(utils.ToStr(s.st.String(), ":", s.id), logCnf, s.app.Debugger().Debug())
 	s.addErr(err)
-	s.regInfo = &regCenter.RegInfo{
-		AppId:   s.app.ID(),
-		RegType: regtype.Rpc,
-		ServerInfo: regCenter.ServerInfo{
-			Id:      s.id,
-			Name:    s.name,
-			Type:    s.st.String(),
-			EndType: s.et.String(),
-		},
-		Host:      s.host.String(),
-		Val:       s.host.String(),
-		Ttl:       s.app.RegTtl(),
-		KeyPreGen: regCenter.ActionRegKeyPrefixGenerator(),
-	}
+	s.tpm.RegisterAfterHandler(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
+		if err != nil {
+			s.logger.Error(utils.ToStr("rpc call tcp-gateway[", method, "] failed, ", err.Error()), zap.Any("req", req), zap.Any("resp", reply))
+		} else {
+			s.logger.Debug(utils.ToStr("rpc call tcp-gateway[", method, "] success"), zap.Any("req", req), zap.Any("resp", reply))
+		}
+	})
+	s.wpm.RegisterAfterHandler(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
+		if err != nil {
+			s.logger.Error(utils.ToStr("rpc call wss-gateway[", method, "] failed, ", err.Error()), zap.Any("req", req), zap.Any("resp", reply))
+		} else {
+			s.logger.Debug(utils.ToStr("rpc call wss-gateway[", method, "] success"), zap.Any("req", req), zap.Any("resp", reply))
+		}
+	})
 	s.tcpGwRegInfo = &regCenter.RegInfo{
 		AppId:   app.ID(),
 		RegType: regtype.Rpc,
@@ -104,13 +117,6 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 			EndType: s.et.String(),
 		},
 	}
-
-	ss := rpc2.New(app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
-	ss.RegisterService(rpc2.ServiceInfo{
-		Desc: handlerv1.HandlerService_ServiceDesc,
-		Impl: impl.NewHandlerService(s.am, s.logger.Named("handle")),
-	})
-	s.rs = ss
 
 	return s
 }
@@ -146,11 +152,26 @@ func (s *Handler) Logger() *zap.Logger {
 }
 
 // WithDocServer with doc server
-func (s *Handler) WithDocServer(port int, docProxyPrefix string, provider func() ([]byte, error), public bool) {
+func (s *Handler) WithDocServer(port int, docProxyPrefix string, provider func() ([]byte, error), public bool, projPrefixed bool) {
+	s.dsPrefixed = projPrefixed
+	s.ds = NewDocServer(s.app.ID(), s.docConfig(port, docProxyPrefix, provider, public))
+}
+
+// WithDocServerIns with doc server
+func (s *Handler) WithDocServerIns(ins *gin.Engine, port int, docProxyPrefix string, provider func() ([]byte, error), public bool) {
+	s.dsCus = true
+	s.ds = NewDocServerWithEngine(ins, s.app.ID(), s.docConfig(port, docProxyPrefix, provider, public))
+}
+
+func (s *Handler) docConfig(port int, docProxyPrefix string, provider func() ([]byte, error), public bool) *DocConfig {
 	if docProxyPrefix != "" {
 		docProxyPrefix = "/" + strings.Trim(docProxyPrefix, "/")
 	}
-	config := &DocConfig{
+	docName := "docs"
+	if s.dsCus || s.dsPrefixed {
+		docName = utils.ToStr(s.et.String(), "-", s.sct.ToServerType().String(), "-docs")
+	}
+	return &DocConfig{
 		id:      s.id,
 		endType: s.et,
 		Origin: url.Origin{
@@ -163,15 +184,61 @@ func (s *Handler) WithDocServer(port int, docProxyPrefix string, provider func()
 		RegTtl: s.app.RegTtl(),
 		Doc: DocItem{
 			socketType: s.sct,
-			Path:       "/docs/" + s.module + "/" + s.subModule + "." + s.sct.ToServerType().String() + "doc", // the same with the socket gateway
+			Path:       utils.ToStr("/", docName, "/", s.module, "/", s.subModule, ".", s.sct.ToServerType().String()+"doc"), // the same with the socket gateway,
 			Prefix:     docProxyPrefix,
 			Title:      s.name,
 			Public:     public,
 			Provider:   provider,
 		},
 	}
-	s.ds = NewDocServer(s.app.ID(), config)
-	s.debug("doc server enabled")
+}
+
+func (s *Handler) WithRpc(host url.Host) {
+	s.host = host
+	s.initRegInfo()
+}
+
+func (s *Handler) initRegInfo() {
+	s.regInfo = &regCenter.RegInfo{
+		AppId:   s.app.ID(),
+		RegType: regtype.Rpc,
+		ServerInfo: regCenter.ServerInfo{
+			Id:      s.id,
+			Name:    s.name,
+			Type:    s.st.String(),
+			EndType: s.et.String(),
+		},
+		Host:      s.host.String(),
+		Val:       s.host.String(),
+		Ttl:       s.app.RegTtl(),
+		KeyPreGen: regCenter.ActionRegKeyPrefixGenerator(),
+	}
+}
+
+func (s *Handler) initRs(failedCb func(error)) bool {
+	if s.rs == nil {
+		if s.host.Port <= 0 {
+			failedCb(s.handlerError("port err", errors.New("handler rpc port required")))
+			return false
+		}
+		s.rs = rpc2.New(s.app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
+		s.logger.Debug("rpc initialized(default)")
+	} else {
+		s.logger.Debug("rpc initialized(customer)")
+	}
+	s.rs.RegisterService(rpc2.ServiceInfo{
+		Desc: handlerv1.HandlerService_ServiceDesc,
+		Impl: impl.NewHandlerService(s.am),
+	})
+	return true
+}
+
+func (s *Handler) WithRpcIns(ins *rpc2.Server) {
+	s.rs = ins
+	s.rsCus = true
+	s.host = ins.Host()
+	s.initRegInfo()
+	// 不注册， 这里注册action
 }
 
 // Release resource
@@ -180,10 +247,19 @@ func (s *Handler) Release() {
 		s.rs.Release()
 	}
 	if s.app.Register() != nil {
+		if s.ds != nil {
+			_ = s.app.DoUnregister(s.ds.RegInfo(), func(msg string) {
+				if s.logger != nil {
+					s.logger.Debug(msg)
+				}
+			})
+		}
 		_ = s.register(s.app.Register(), false)
 	}
-	_ = s.logger.Sync()
-	s.debug("released")
+	if s.logger != nil {
+		s.logger.Info("released")
+		_ = s.logger.Sync()
+	}
 }
 
 // Run start run
@@ -192,23 +268,42 @@ func (s *Handler) Run(failedCb func(error)) {
 		failedCb(s.errs[0])
 		return
 	}
-	s.debug("start running...")
-	if s.app.Register() != nil {
-		if err := s.register(s.app.Register(), true); err != nil {
-			failedCb(s.handlerError(s.msg("register failed"), err))
-		}
+	s.logger.Info("init start...")
+	if !s.initRs(failedCb) {
+		return
 	}
 	if s.ds != nil {
-		docDesc := utils.ToStr("doc server [", s.ds.config.Origin.Host.String(), "] ")
-		s.logger.Info(docDesc + "start and serving...")
-		s.logger.Info(docDesc + "socket doc url=" + s.ds.DocUrl())
+		s.logger.Info(utils.ToStr("doc server[", s.ds.config.Origin.Host.String(), "] start and serving..."))
+		s.logger.Info("doc url=" + s.ds.DocUrl())
 		s.ds.SyncStart(failedCb)
+		if s.app.Register() != nil {
+			if err := s.app.DoRegister(s.ds.RegInfo(), func(msg string) {
+				s.logger.Debug(msg)
+			}); err != nil {
+				failedCb(err)
+				return
+			}
+		}
 	}
+	s.logger.Debug("handler watch start")
 	if err := s.watch(s.app.Register()); err != nil {
 		failedCb(err)
 		return
 	}
-	if s.rs != nil {
+	for _, h := range s.actListeners {
+		h(s.am)
+	}
+	s.logger.Info("listen action initialized")
+	if s.app.Register() != nil {
+		s.logger.Debug("action register start")
+		if err := s.register(s.app.Register(), true); err != nil {
+			failedCb(s.handlerError("register failed", err))
+		}
+		s.logger.Debug("action registered")
+	}
+	s.logger.Info("initialized")
+	if !s.rsCus {
+		s.logger.Info(utils.ToStr("server[", s.host.String(), "] start and serving..."))
 		s.rs.Run(failedCb)
 	}
 }
@@ -219,22 +314,14 @@ func (s *Handler) handlerError(msg string, err error) error {
 
 // Listen action
 func (s *Handler) Listen(act codec.Action, structure action.DataStructure, handler action.Handler) {
-	s.am.RegisterHandler(act, structure, handler)
+	s.actListeners = append(s.actListeners, func(manager *action.Manager) {
+		manager.RegisterHandler(act, structure, handler)
+		s.logger.Debug("listened action:" + act.Name)
+	})
 }
 
 func (s *Handler) register(register regCenter.Register, reg bool) error {
-	if s.ds != nil {
-		if reg {
-			if err := s.app.DoRegister(s.ds.RegInfo()); err != nil {
-				return err
-			}
-		} else {
-			if err := s.app.DoUnregister(s.ds.RegInfo()); err != nil {
-				return err
-			}
-		}
-	}
-	err := s.am.RangeHandlerActions(func(act codec.Action) error {
+	return s.am.RangeHandlerActions(func(act codec.Action) error {
 		prefix := s.regInfo.Prefix()
 		key := strings.TrimPrefix(strings.Join([]string{prefix, s.regInfo.ServerInfo.Id, s.regInfo.Host, act.Id.String()}, "/"), "/")
 		if reg {
@@ -245,31 +332,22 @@ func (s *Handler) register(register regCenter.Register, reg bool) error {
 			if err := register.Register(s.app.Context(), key, val, s.regInfo.Ttl); err != nil {
 				return err
 			}
+			s.logger.Debug(utils.ToStr("registered action:", key, "=>", val))
 		} else {
 			if err := register.Unregister(s.app.Context(), key); err != nil {
 				return err
 			}
+
+			s.logger.Debug(utils.ToStr("unregistered action:", key))
 		}
 		return nil
 	})
-
-	return err
-}
-
-func (s *Handler) debug(msg string) {
-	if s.app.Debugger().Debug() {
-		s.logger.Debug(msg)
-	}
 }
 
 func (s *Handler) addErr(err error) {
 	if err != nil {
 		s.errs = append(s.errs, err)
 	}
-}
-
-func (s *Handler) msg(msg ...string) string {
-	return utils.ToStr("Socket Handler[", s.name, "] ", utils.ToStr(msg...))
 }
 
 func (s *Handler) watch(register regCenter.Register) error {
@@ -282,10 +360,10 @@ func (s *Handler) watch(register regCenter.Register) error {
 		segments := strings.Split(key, "/")
 		host := segments[len(segments)-1]
 		if isDel {
-			s.debug(utils.ToStr("tcp gateway [", host, "] leaved"))
+			s.logger.Debug(utils.ToStr("tcp gateway [", host, "] leaved"))
 			s.tpm.Rm("gateway", host)
 		} else {
-			s.debug(utils.ToStr("tcp gateway [", host, "] added"))
+			s.logger.Debug(utils.ToStr("tcp gateway [", host, "] added"))
 			s.tpm.Add("gateway", host)
 		}
 	})
@@ -297,10 +375,10 @@ func (s *Handler) watch(register regCenter.Register) error {
 		segments := strings.Split(key, "/")
 		host := segments[len(segments)-1]
 		if isDel {
-			s.debug(utils.ToStr("wss gateway [", host, "] leaved"))
+			s.logger.Debug(utils.ToStr("wss gateway [", host, "] leaved"))
 			s.wpm.Rm("gateway", host)
 		} else {
-			s.debug(utils.ToStr("wss gateway [", host, "] added"))
+			s.logger.Debug(utils.ToStr("wss gateway [", host, "] added"))
 			s.wpm.Add("gateway", host)
 		}
 	})
