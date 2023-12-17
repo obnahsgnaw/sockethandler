@@ -6,6 +6,7 @@ import (
 	"github.com/obnahsgnaw/application/pkg/url"
 	"github.com/obnahsgnaw/application/regtype"
 	"github.com/obnahsgnaw/application/service/regCenter"
+	http2 "github.com/obnahsgnaw/http"
 	"github.com/obnahsgnaw/sockethandler/sockettype"
 	"net/http"
 )
@@ -38,12 +39,20 @@ type DocServer struct {
 
 // NewDocServer new a socket doc server
 func NewDocServer(clusterId string, config *DocConfig) *DocServer {
-	gin.SetMode(gin.ReleaseMode)
-	e := gin.Default()
-	e.GET("/favicon.ico", func(c *gin.Context) {
-		c.Status(http.StatusOK)
+	e, _ := http2.New(&http2.Config{
+		Name:           config.id,
+		DebugMode:      false,
+		LogDebug:       true,
+		AccessWriter:   nil,
+		ErrWriter:      nil,
+		TrustedProxies: nil,
+		Cors:           nil,
+		LogCnf:         nil,
 	})
+	return NewDocServerWithEngine(e, clusterId, config)
+}
 
+func NewDocServerWithEngine(e *gin.Engine, clusterId string, config *DocConfig) *DocServer {
 	s := &DocServer{
 		config: config,
 		engine: e,
@@ -70,7 +79,7 @@ func NewDocServer(clusterId string, config *DocConfig) *DocServer {
 			"public": public,
 		},
 	}
-
+	s.initDocRoute()
 	return s
 }
 
@@ -101,7 +110,6 @@ func (s *DocServer) initDocRoute() {
 }
 
 func (s *DocServer) Start() error {
-	s.initDocRoute()
 	if err := s.engine.Run(s.config.Origin.Host.String()); err != nil {
 		return err
 	}
