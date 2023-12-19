@@ -39,7 +39,10 @@ func main() {
 	)
 	s.WithRpc(url.Host{Ip: "127.0.0.1", Port: 8010})
 
-	s.WithDocServer(8011, "/v1/doc/socket/tcp", func() ([]byte, error) {
+	s.WithDocServer(url.Host{
+		Ip:   "127.0.0.1",
+		Port: 8011,
+	}, "/v1/doc/socket/tcp", func() ([]byte, error) {
 		return []byte("ok"), nil
 	}, false, false)
 
