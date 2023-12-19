@@ -3,7 +3,6 @@ package sockethandler
 import (
 	"context"
 	"errors"
-	"github.com/gin-gonic/gin"
 	"github.com/obnahsgnaw/application"
 	"github.com/obnahsgnaw/application/endtype"
 	"github.com/obnahsgnaw/application/pkg/logging/logger"
@@ -12,6 +11,7 @@ import (
 	"github.com/obnahsgnaw/application/regtype"
 	"github.com/obnahsgnaw/application/servertype"
 	"github.com/obnahsgnaw/application/service/regCenter"
+	"github.com/obnahsgnaw/http"
 	rpc2 "github.com/obnahsgnaw/rpc"
 	"github.com/obnahsgnaw/rpc/pkg/rpc"
 	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
@@ -53,9 +53,10 @@ type Handler struct {
 	errs         []error
 	flbNum       int
 	actListeners []func(manager *action.Manager)
+	engin        *http.PortedEngine
 }
 
-func New(app *application.Application, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType) *Handler {
+func New(app *application.Application, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, o ...Option) *Handler {
 	var err error
 	s := &Handler{
 		id:        module + "-" + subModule,
@@ -117,7 +118,7 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 			EndType: s.et.String(),
 		},
 	}
-
+	s.With(o...)
 	return s
 }
 
@@ -151,21 +152,38 @@ func (s *Handler) Logger() *zap.Logger {
 	return s.logger
 }
 
+func (s *Handler) Rpc() *rpc2.Server {
+	return s.rs
+}
+
+func (s *Handler) Engine() *http.PortedEngine {
+	return s.engin
+}
+
 // WithDocServer with doc server
-func (s *Handler) WithDocServer(port int, docProxyPrefix string, provider func() ([]byte, error), public bool, projPrefixed bool) {
+func (s *Handler) WithDocServer(host url.Host, proxyPrefix string, provider func() ([]byte, error), public bool, projPrefixed bool) {
 	s.dsPrefixed = projPrefixed
-	s.ds = NewDocServer(s.app.ID(), s.docConfig(port, docProxyPrefix, provider, public))
+	s.ds = NewDocServer(s.app.ID(), s.docConfig(host, proxyPrefix, provider, public))
 }
 
 // WithDocServerIns with doc server
-func (s *Handler) WithDocServerIns(ins *gin.Engine, port int, docProxyPrefix string, provider func() ([]byte, error), public bool) {
+func (s *Handler) WithDocServerIns(ins *http.PortedEngine, proxyPrefix string, provider func() ([]byte, error), public bool) {
 	s.dsCus = true
-	s.ds = NewDocServerWithEngine(ins, s.app.ID(), s.docConfig(port, docProxyPrefix, provider, public))
+	s.engin = ins
+	s.ds = NewDocServerWithEngine(ins.Engine(), s.app.ID(), s.docConfig(ins.Host(), proxyPrefix, provider, public))
 }
 
-func (s *Handler) docConfig(port int, docProxyPrefix string, provider func() ([]byte, error), public bool) *DocConfig {
-	if docProxyPrefix != "" {
-		docProxyPrefix = "/" + strings.Trim(docProxyPrefix, "/")
+func (s *Handler) WithDocServerInsOrNew(ins *http.PortedEngine, newInsHost url.Host, proxyPrefix string, provider func() ([]byte, error), public bool, projPrefixed bool) {
+	if ins != nil {
+		s.WithDocServerIns(ins, proxyPrefix, provider, public)
+	} else {
+		s.WithDocServer(newInsHost, proxyPrefix, provider, public, projPrefixed)
+	}
+}
+
+func (s *Handler) docConfig(host url.Host, proxyPrefix string, provider func() ([]byte, error), public bool) *DocConfig {
+	if proxyPrefix != "" {
+		proxyPrefix = "/" + strings.Trim(proxyPrefix, "/")
 	}
 	docName := "docs"
 	if s.dsCus || s.dsPrefixed {
@@ -176,16 +194,13 @@ func (s *Handler) docConfig(port int, docProxyPrefix string, provider func() ([]
 		endType: s.et,
 		Origin: url.Origin{
 			Protocol: url.HTTP,
-			Host: url.Host{
-				Ip:   s.host.Ip,
-				Port: port,
-			},
+			Host:     host,
 		},
 		RegTtl: s.app.RegTtl(),
 		Doc: DocItem{
 			socketType: s.sct,
 			Path:       utils.ToStr("/", docName, "/", s.module, "/", s.subModule, ".", s.sct.ToServerType().String()+"doc"), // the same with the socket gateway,
-			Prefix:     docProxyPrefix,
+			Prefix:     proxyPrefix,
 			Title:      s.name,
 			Public:     public,
 			Provider:   provider,
@@ -196,6 +211,14 @@ func (s *Handler) docConfig(port int, docProxyPrefix string, provider func() ([]
 func (s *Handler) WithRpc(host url.Host) {
 	s.host = host
 	s.initRegInfo()
+}
+
+func (s *Handler) WithRpcIns(ins *rpc2.Server) {
+	s.rs = ins
+	s.rsCus = true
+	s.host = ins.Host()
+	s.initRegInfo()
+	// 不注册， 这里注册action
 }
 
 func (s *Handler) initRegInfo() {
@@ -233,12 +256,12 @@ func (s *Handler) initRs(failedCb func(error)) bool {
 	return true
 }
 
-func (s *Handler) WithRpcIns(ins *rpc2.Server) {
-	s.rs = ins
-	s.rsCus = true
-	s.host = ins.Host()
-	s.initRegInfo()
-	// 不注册， 这里注册action
+func (s *Handler) WithRpcInsOrNew(ins *rpc2.Server, host *url.Host) {
+	if ins != nil {
+		s.WithRpcIns(ins)
+	} else {
+		s.WithRpc(*host)
+	}
 }
 
 // Release resource
@@ -273,9 +296,12 @@ func (s *Handler) Run(failedCb func(error)) {
 		return
 	}
 	if s.ds != nil {
-		s.logger.Info(utils.ToStr("doc server[", s.ds.config.Origin.Host.String(), "] start and serving..."))
+		s.logger.Debug("doc server enabled")
 		s.logger.Info("doc url=" + s.ds.DocUrl())
-		s.ds.SyncStart(failedCb)
+		if !s.dsCus {
+			s.logger.Info(utils.ToStr("doc server[", s.ds.config.Origin.Host.String(), "] start and serving..."))
+			s.ds.SyncStart(failedCb)
+		}
 		if s.app.Register() != nil {
 			if err := s.app.DoRegister(s.ds.RegInfo(), func(msg string) {
 				s.logger.Debug(msg)
