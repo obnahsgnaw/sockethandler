@@ -19,13 +19,14 @@ func (s *Handler) With(options ...Option) {
 func DocServ(host url.Host, proxyPrefix string, provider func() ([]byte, error), public bool) Option {
 	return func(s *Handler) {
 		s.ds = NewDocServer(s.app.ID(), s.docConfig(host, proxyPrefix, provider, public))
+		s.engin = http.NewPortedEngine(s.ds.engine, host)
 	}
 }
 func DocServerIns(ins *http.PortedEngine, proxyPrefix string, provider func() ([]byte, error), public bool) Option {
 	return func(s *Handler) {
 		s.dsCus = true
-		s.engin = ins
 		s.ds = NewDocServerWithEngine(ins.Engine(), s.app.ID(), s.docConfig(ins.Host(), proxyPrefix, provider, public))
+		s.engin = ins
 	}
 }
 func DocServerInsOrNew(ins *http.PortedEngine, newInsHost url.Host, proxyPrefix string, provider func() ([]byte, error), public bool) Option {
