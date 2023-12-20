@@ -42,9 +42,9 @@ type Handler struct {
 	rs           *rpc2.Server
 	rsCus        bool
 	logger       *zap.Logger
+	logCnf       *logger.Config
 	ds           *DocServer
 	dsCus        bool
-	dsPrefixed   bool
 	regInfo      *regCenter.RegInfo // actions
 	tcpGwRegInfo *regCenter.RegInfo // tcp gateway
 	wssGwRegInfo *regCenter.RegInfo // wss gateway
@@ -76,13 +76,13 @@ func New(app *application.Application, module, subModule, name string, et endtyp
 	if s.st == "" {
 		s.addErr(s.handlerError("type invalid", errors.New("type not support")))
 	}
-	logCnf := logger.CopyCnfWithLevel(s.app.LogConfig())
-	if logCnf != nil {
-		logCnf.AddSubDir(filepath.Join(s.et.String(), utils.ToStr(s.st.String(), "-", s.id)))
-		logCnf.SetFilename(utils.ToStr(s.st.String(), "-", s.id))
-		logCnf.ReplaceTraceLevel(zap.NewAtomicLevelAt(zap.FatalLevel))
+	s.logCnf = logger.CopyCnfWithLevel(s.app.LogConfig())
+	if s.logCnf != nil {
+		s.logCnf.AddSubDir(filepath.Join(s.et.String(), utils.ToStr(s.st.String(), "-", s.id)))
+		s.logCnf.SetFilename(utils.ToStr(s.st.String(), "-", s.id))
+		s.logCnf.ReplaceTraceLevel(zap.NewAtomicLevelAt(zap.FatalLevel))
 	}
-	s.logger, err = logger.New(utils.ToStr(s.st.String(), ":", s.id), logCnf, s.app.Debugger().Debug())
+	s.logger, err = logger.New(utils.ToStr(s.st.String(), ":", s.id), s.logCnf, s.app.Debugger().Debug())
 	s.addErr(err)
 	s.tpm.RegisterAfterHandler(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
 		if err != nil {
@@ -140,128 +140,6 @@ func (s *Handler) Type() servertype.ServerType {
 // EndType return the server end type
 func (s *Handler) EndType() endtype.EndType {
 	return s.et
-}
-
-// SocketType return the server socket type
-func (s *Handler) SocketType() sockettype.SocketType {
-	return s.sct
-}
-
-// Logger return the logger
-func (s *Handler) Logger() *zap.Logger {
-	return s.logger
-}
-
-func (s *Handler) Rpc() *rpc2.Server {
-	return s.rs
-}
-
-func (s *Handler) Engine() *http.PortedEngine {
-	return s.engin
-}
-
-// WithDocServer with doc server
-func (s *Handler) WithDocServer(host url.Host, proxyPrefix string, provider func() ([]byte, error), public bool, projPrefixed bool) {
-	s.dsPrefixed = projPrefixed
-	s.ds = NewDocServer(s.app.ID(), s.docConfig(host, proxyPrefix, provider, public))
-}
-
-// WithDocServerIns with doc server
-func (s *Handler) WithDocServerIns(ins *http.PortedEngine, proxyPrefix string, provider func() ([]byte, error), public bool) {
-	s.dsCus = true
-	s.engin = ins
-	s.ds = NewDocServerWithEngine(ins.Engine(), s.app.ID(), s.docConfig(ins.Host(), proxyPrefix, provider, public))
-}
-
-func (s *Handler) WithDocServerInsOrNew(ins *http.PortedEngine, newInsHost url.Host, proxyPrefix string, provider func() ([]byte, error), public bool, projPrefixed bool) {
-	if ins != nil {
-		s.WithDocServerIns(ins, proxyPrefix, provider, public)
-	} else {
-		s.WithDocServer(newInsHost, proxyPrefix, provider, public, projPrefixed)
-	}
-}
-
-func (s *Handler) docConfig(host url.Host, proxyPrefix string, provider func() ([]byte, error), public bool) *DocConfig {
-	if proxyPrefix != "" {
-		proxyPrefix = "/" + strings.Trim(proxyPrefix, "/")
-	}
-	docName := "docs"
-	if s.dsCus || s.dsPrefixed {
-		docName = utils.ToStr(s.et.String(), "-", s.sct.ToServerType().String(), "-docs")
-	}
-	return &DocConfig{
-		id:      s.id,
-		endType: s.et,
-		Origin: url.Origin{
-			Protocol: url.HTTP,
-			Host:     host,
-		},
-		RegTtl: s.app.RegTtl(),
-		Doc: DocItem{
-			socketType: s.sct,
-			Path:       utils.ToStr("/", docName, "/", s.module, "/", s.subModule, ".", s.sct.ToServerType().String()+"doc"), // the same with the socket gateway,
-			Prefix:     proxyPrefix,
-			Title:      s.name,
-			Public:     public,
-			Provider:   provider,
-		},
-	}
-}
-
-func (s *Handler) WithRpc(host url.Host) {
-	s.host = host
-	s.initRegInfo()
-}
-
-func (s *Handler) WithRpcIns(ins *rpc2.Server) {
-	s.rs = ins
-	s.rsCus = true
-	s.host = ins.Host()
-	s.initRegInfo()
-	// 不注册， 这里注册action
-}
-
-func (s *Handler) initRegInfo() {
-	s.regInfo = &regCenter.RegInfo{
-		AppId:   s.app.ID(),
-		RegType: regtype.Rpc,
-		ServerInfo: regCenter.ServerInfo{
-			Id:      s.id,
-			Name:    s.name,
-			Type:    s.st.String(),
-			EndType: s.et.String(),
-		},
-		Host:      s.host.String(),
-		Val:       s.host.String(),
-		Ttl:       s.app.RegTtl(),
-		KeyPreGen: regCenter.ActionRegKeyPrefixGenerator(),
-	}
-}
-
-func (s *Handler) initRs(failedCb func(error)) bool {
-	if s.rs == nil {
-		if s.host.Port <= 0 {
-			failedCb(s.handlerError("port err", errors.New("handler rpc port required")))
-			return false
-		}
-		s.rs = rpc2.New(s.app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
-		s.logger.Debug("rpc initialized(default)")
-	} else {
-		s.logger.Debug("rpc initialized(customer)")
-	}
-	s.rs.RegisterService(rpc2.ServiceInfo{
-		Desc: handlerv1.HandlerService_ServiceDesc,
-		Impl: impl.NewHandlerService(s.am),
-	})
-	return true
-}
-
-func (s *Handler) WithRpcInsOrNew(ins *rpc2.Server, host *url.Host) {
-	if ins != nil {
-		s.WithRpcIns(ins)
-	} else {
-		s.WithRpc(*host)
-	}
 }
 
 // Release resource
@@ -334,8 +212,34 @@ func (s *Handler) Run(failedCb func(error)) {
 	}
 }
 
-func (s *Handler) handlerError(msg string, err error) error {
-	return utils.TitledError(utils.ToStr("handler[", s.name, "] error"), msg, err)
+func (s *Handler) TcpGateway() *impl.Gateway {
+	return s.tgw
+}
+
+func (s *Handler) WssGateway() *impl.Gateway {
+	return s.wgw
+}
+
+// SocketType return the server socket type
+func (s *Handler) SocketType() sockettype.SocketType {
+	return s.sct
+}
+
+// Logger return the logger
+func (s *Handler) Logger() *zap.Logger {
+	return s.logger
+}
+
+func (s *Handler) LogConfig() *logger.Config {
+	return s.logCnf
+}
+
+func (s *Handler) Rpc() *rpc2.Server {
+	return s.rs
+}
+
+func (s *Handler) Engine() *http.PortedEngine {
+	return s.engin
 }
 
 // Listen action
@@ -344,6 +248,67 @@ func (s *Handler) Listen(act codec.Action, structure action.DataStructure, handl
 		manager.RegisterHandler(act, structure, handler)
 		s.logger.Debug("listened action:" + act.Name)
 	})
+}
+
+func (s *Handler) docConfig(host url.Host, proxyPrefix string, provider func() ([]byte, error), public bool) *DocConfig {
+	return &DocConfig{
+		id:       s.id,
+		endType:  s.et,
+		servType: s.st,
+		Origin: url.Origin{
+			Protocol: url.HTTP,
+			Host:     host,
+		},
+		RegTtl:   s.app.RegTtl(),
+		GwPrefix: proxyPrefix,
+		Doc: DocItem{
+			socketType: s.sct,
+			Title:      s.name,
+			Public:     public,
+			Provider:   provider,
+			Module:     s.module,
+			SubModule:  s.subModule,
+		},
+	}
+}
+
+func (s *Handler) initRegInfo() {
+	s.regInfo = &regCenter.RegInfo{
+		AppId:   s.app.ID(),
+		RegType: regtype.Rpc,
+		ServerInfo: regCenter.ServerInfo{
+			Id:      s.id,
+			Name:    s.name,
+			Type:    s.st.String(),
+			EndType: s.et.String(),
+		},
+		Host:      s.host.String(),
+		Val:       s.host.String(),
+		Ttl:       s.app.RegTtl(),
+		KeyPreGen: regCenter.ActionRegKeyPrefixGenerator(),
+	}
+}
+
+func (s *Handler) initRs(failedCb func(error)) bool {
+	if s.rs == nil {
+		if s.host.Port <= 0 {
+			failedCb(s.handlerError("port err", errors.New("handler rpc port required")))
+			return false
+		}
+		s.rs = rpc2.New(s.app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
+		s.logger.Debug("rpc initialized(default)")
+	} else {
+		s.logger.Debug("rpc initialized(customer)")
+	}
+	s.rs.RegisterService(rpc2.ServiceInfo{
+		Desc: handlerv1.HandlerService_ServiceDesc,
+		Impl: impl.NewHandlerService(s.am),
+	})
+	return true
+}
+
+func (s *Handler) handlerError(msg string, err error) error {
+	return utils.TitledError(utils.ToStr("handler[", s.name, "] error"), msg, err)
 }
 
 func (s *Handler) register(register regCenter.Register, reg bool) error {
@@ -408,14 +373,6 @@ func (s *Handler) watch(register regCenter.Register) error {
 			s.wpm.Add("gateway", host)
 		}
 	})
-}
-
-func (s *Handler) TcpGateway() *impl.Gateway {
-	return s.tgw
-}
-
-func (s *Handler) WssGateway() *impl.Gateway {
-	return s.wgw
 }
 
 // SetWssActionFlbNum 用于解决 wss的action能负载到和tcp同一个服务上去, wss服务可用,(最好就是tcp的端口， 这样tcp负载算法输入和wss输入就一样了)

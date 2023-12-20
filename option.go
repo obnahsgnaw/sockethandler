@@ -16,26 +16,31 @@ func (s *Handler) With(options ...Option) {
 	}
 }
 
-func DocServ(host url.Host, proxyPrefix string, provider func() ([]byte, error), public bool, projPrefixed bool) Option {
+func DocServ(host url.Host, proxyPrefix string, provider func() ([]byte, error), public bool) Option {
 	return func(s *Handler) {
-		s.WithDocServer(host, proxyPrefix, provider, public, projPrefixed)
+		s.ds = NewDocServer(s.app.ID(), s.docConfig(host, proxyPrefix, provider, public))
 	}
 }
 func DocServerIns(ins *http.PortedEngine, proxyPrefix string, provider func() ([]byte, error), public bool) Option {
 	return func(s *Handler) {
-		s.WithDocServerIns(ins, proxyPrefix, provider, public)
+		s.dsCus = true
+		s.engin = ins
+		s.ds = NewDocServerWithEngine(ins.Engine(), s.app.ID(), s.docConfig(ins.Host(), proxyPrefix, provider, public))
 	}
 }
-func DocServerInsOrNew(ins *http.PortedEngine, newInsHost url.Host, proxyPrefix string, provider func() ([]byte, error), public bool, projPrefixed bool) Option {
+func DocServerInsOrNew(ins *http.PortedEngine, newInsHost url.Host, proxyPrefix string, provider func() ([]byte, error), public bool) Option {
 	if ins != nil {
 		return DocServerIns(ins, proxyPrefix, provider, public)
 	}
 
-	return DocServ(newInsHost, proxyPrefix, provider, public, projPrefixed)
+	return DocServ(newInsHost, proxyPrefix, provider, public)
 }
 func RpcIns(ins *rpc2.Server) Option {
 	return func(s *Handler) {
-		s.WithRpcIns(ins)
+		s.rs = ins
+		s.rsCus = true
+		s.host = ins.Host()
+		s.initRegInfo()
 	}
 }
 func RpcInsOrNew(ins *rpc2.Server, host url.Host) Option {
@@ -46,6 +51,7 @@ func RpcInsOrNew(ins *rpc2.Server, host url.Host) Option {
 }
 func Rpc(host url.Host) Option {
 	return func(s *Handler) {
-		s.WithRpc(host)
+		s.host = host
+		s.initRegInfo()
 	}
 }
