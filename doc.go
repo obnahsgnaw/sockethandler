@@ -4,7 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/obnahsgnaw/application/endtype"
 	"github.com/obnahsgnaw/application/pkg/url"
+	"github.com/obnahsgnaw/application/pkg/utils"
 	"github.com/obnahsgnaw/application/regtype"
+	"github.com/obnahsgnaw/application/servertype"
 	"github.com/obnahsgnaw/application/service/regCenter"
 	http2 "github.com/obnahsgnaw/http"
 	"github.com/obnahsgnaw/sockethandler/sockettype"
@@ -14,9 +16,11 @@ import (
 type DocConfig struct {
 	id       string
 	endType  endtype.EndType
+	servType servertype.ServerType
 	Origin   url.Origin
 	RegTtl   int64
 	CacheTtl int
+	GwPrefix string
 	Doc      DocItem
 }
 
@@ -24,8 +28,9 @@ type DocItem struct {
 	Title      string
 	Public     bool
 	socketType sockettype.SocketType // 通过上层应用来设置
-	Path       string
-	Prefix     string
+	Module     string
+	SubModule  string
+	path       string
 	Provider   func() ([]byte, error)
 }
 
@@ -33,6 +38,7 @@ type DocServer struct {
 	config  *DocConfig
 	engine  *gin.Engine
 	regInfo *regCenter.RegInfo
+	prefix  string
 }
 
 // doc-index --> id-list --> key list
@@ -56,7 +62,12 @@ func NewDocServerWithEngine(e *gin.Engine, clusterId string, config *DocConfig) 
 	s := &DocServer{
 		config: config,
 		engine: e,
+		prefix: utils.ToStr("/", config.endType.String(), "-", config.Doc.socketType.ToServerType().String(), "-docs"), // the same prefix with the socket handler
 	}
+	if s.config.GwPrefix != "" {
+		s.prefix = s.config.GwPrefix + s.prefix
+	}
+	s.config.Doc.path = utils.ToStr(s.prefix, "/", s.config.Doc.Module, "/", s.config.Doc.SubModule)
 	public := "0"
 	if config.Doc.Public {
 		public = "1"
@@ -103,10 +114,7 @@ func (s *DocServer) initDocRoute() {
 			_, _ = c.Writer.Write(tmpl)
 		}
 	}
-	s.engine.GET(s.config.Doc.Path, hd)
-	if s.config.Doc.Prefix != "" {
-		s.engine.GET(s.config.Doc.Prefix+"/"+s.config.Doc.Path, hd)
-	}
+	s.engine.GET(s.config.Doc.path, hd)
 }
 
 func (s *DocServer) Start() error {
@@ -117,7 +125,7 @@ func (s *DocServer) Start() error {
 }
 
 func (s *DocServer) DocUrl() string {
-	return s.config.Origin.String() + s.config.Doc.Path
+	return s.config.Origin.String() + s.config.Doc.path
 }
 
 func (s *DocServer) SyncStart(cb func(error)) {
