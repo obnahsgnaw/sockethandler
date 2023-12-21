@@ -42,6 +42,7 @@ func RpcIns(ins *rpc2.Server) Option {
 		s.rsCus = true
 		s.host = ins.Host()
 		s.initRegInfo()
+		s.addDefaultRpcService()
 	}
 }
 func RpcInsOrNew(ins *rpc2.Server, host url.Host) Option {
