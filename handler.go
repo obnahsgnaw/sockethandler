@@ -14,7 +14,6 @@ import (
 	"github.com/obnahsgnaw/http"
 	rpc2 "github.com/obnahsgnaw/rpc"
 	"github.com/obnahsgnaw/rpc/pkg/rpc"
-	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
 	"github.com/obnahsgnaw/sockethandler/service/action"
 	"github.com/obnahsgnaw/sockethandler/service/proto/impl"
 	"github.com/obnahsgnaw/sockethandler/sockettype"
@@ -170,8 +169,10 @@ func (s *Handler) Run(failedCb func(error)) {
 		return
 	}
 	s.logger.Info("init start...")
-	if !s.initRs(failedCb) {
-		return
+	if s.rs == nil {
+		s.logger.Debug("rpc initialized(default)")
+	} else {
+		s.logger.Debug("rpc initialized(customer)")
 	}
 	if s.ds != nil {
 		s.logger.Debug("doc server enabled")
@@ -220,6 +221,10 @@ func (s *Handler) WssGateway() *impl.Gateway {
 	return s.wgw
 }
 
+func (s *Handler) ActionManager() *action.Manager {
+	return s.am
+}
+
 // SocketType return the server socket type
 func (s *Handler) SocketType() sockettype.SocketType {
 	return s.sct
@@ -245,6 +250,9 @@ func (s *Handler) Engine() *http.PortedEngine {
 // Listen action
 func (s *Handler) Listen(act codec.Action, structure action.DataStructure, handler action.Handler) {
 	s.actListeners = append(s.actListeners, func(manager *action.Manager) {
+		if _, _, _, ok := manager.GetHandler(act.Id); ok {
+			panic("action[" + act.String() + "] already listened.")
+		}
 		manager.RegisterHandler(act, structure, handler)
 		s.logger.Debug("listened action:" + act.Name)
 	})
@@ -287,28 +295,6 @@ func (s *Handler) initRegInfo() {
 		Ttl:       s.app.RegTtl(),
 		KeyPreGen: regCenter.ActionRegKeyPrefixGenerator(),
 	}
-}
-
-func (s *Handler) initRs(failedCb func(error)) bool {
-	if s.rs == nil {
-		if s.host.Port <= 0 {
-			failedCb(s.handlerError("port err", errors.New("handler rpc port required")))
-			return false
-		}
-		s.rs = rpc2.New(s.app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
-		s.addDefaultRpcService()
-		s.logger.Debug("rpc initialized(default)")
-	} else {
-		s.logger.Debug("rpc initialized(customer)")
-	}
-	return true
-}
-
-func (s *Handler) addDefaultRpcService() {
-	s.rs.RegisterService(rpc2.ServiceInfo{
-		Desc: handlerv1.HandlerService_ServiceDesc,
-		Impl: impl.NewHandlerService(s.am),
-	})
 }
 
 func (s *Handler) handlerError(msg string, err error) error {

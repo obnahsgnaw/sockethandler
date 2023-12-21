@@ -1,9 +1,14 @@
 package sockethandler
 
 import (
+	"errors"
 	"github.com/obnahsgnaw/application/pkg/url"
+	"github.com/obnahsgnaw/application/pkg/utils"
 	"github.com/obnahsgnaw/http"
 	rpc2 "github.com/obnahsgnaw/rpc"
+	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
+	"github.com/obnahsgnaw/sockethandler/service/action"
+	"github.com/obnahsgnaw/sockethandler/service/proto/impl"
 )
 
 type Option func(s *Handler)
@@ -36,24 +41,35 @@ func DocServerInsOrNew(ins *http.PortedEngine, newInsHost url.Host, proxyPrefix 
 
 	return DocServ(newInsHost, proxyPrefix, provider, public)
 }
-func RpcIns(ins *rpc2.Server) Option {
+func RpcIns(ins *rpc2.Server, am *action.Manager) Option {
 	return func(s *Handler) {
 		s.rs = ins
 		s.rsCus = true
 		s.host = ins.Host()
 		s.initRegInfo()
-		s.addDefaultRpcService()
+		if am != nil {
+			s.am = am
+		}
 	}
 }
-func RpcInsOrNew(ins *rpc2.Server, host url.Host) Option {
+func RpcInsOrNew(ins *rpc2.Server, am *action.Manager, host url.Host) Option {
 	if ins != nil {
-		return RpcIns(ins)
+		return RpcIns(ins, am)
 	}
 	return Rpc(host)
 }
 func Rpc(host url.Host) Option {
 	return func(s *Handler) {
 		s.host = host
+		if s.host.Port <= 0 {
+			s.addErr(errors.New("handler rpc port required"))
+			return
+		}
+		s.rs = rpc2.New(s.app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
+		s.rs.RegisterService(rpc2.ServiceInfo{
+			Desc: handlerv1.HandlerService_ServiceDesc,
+			Impl: impl.NewHandlerService(s.am),
+		})
 		s.initRegInfo()
 	}
 }
