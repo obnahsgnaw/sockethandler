@@ -296,15 +296,19 @@ func (s *Handler) initRs(failedCb func(error)) bool {
 			return false
 		}
 		s.rs = rpc2.New(s.app, s.id, utils.ToStr(s.st.String(), "-", s.id, "-rpc"), s.et, s.host, rpc2.Parent(s))
+		s.addDefaultRpcService()
 		s.logger.Debug("rpc initialized(default)")
 	} else {
 		s.logger.Debug("rpc initialized(customer)")
 	}
+	return true
+}
+
+func (s *Handler) addDefaultRpcService() {
 	s.rs.RegisterService(rpc2.ServiceInfo{
 		Desc: handlerv1.HandlerService_ServiceDesc,
 		Impl: impl.NewHandlerService(s.am),
 	})
-	return true
 }
 
 func (s *Handler) handlerError(msg string, err error) error {
