@@ -1,4 +1,12 @@
 
+<a name="v0.20.8"></a>
+## [v0.20.8](https://8.140.161.172/wangsb/wgateway/compare/v0.20.7...v0.20.8) (2023-12-21)
+
+### Bug Fixes
+
+* **handler:** fix rpc bug
+
+
 <a name="v0.20.7"></a>
 ## [v0.20.7](https://8.140.161.172/wangsb/wgateway/compare/v0.20.6...v0.20.7) (2023-12-21)
 
