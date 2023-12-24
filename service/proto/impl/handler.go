@@ -10,12 +10,12 @@ import (
 )
 
 type HandlerService struct {
-	manager             *action.Manager
+	manager             *ManagerProvider
 	dateBuilderProvider codec.DataBuilderProvider
 	handlerv1.UnimplementedHandlerServiceServer
 }
 
-func NewHandlerService(manager *action.Manager) *HandlerService {
+func NewHandlerService(manager *ManagerProvider) *HandlerService {
 	return &HandlerService{manager: manager, dateBuilderProvider: codec.NewDbp()}
 }
 
@@ -32,7 +32,7 @@ func toCodecName(format string) codec.Name {
 
 func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest) (*handlerv1.HandleResponse, error) {
 	// fetch action handler
-	act, structure, handler, ok := s.manager.GetHandler(codec.ActionId(q.ActionId))
+	act, structure, handler, ok := s.manager.GetManager(q.Typ).GetHandler(codec.ActionId(q.ActionId))
 	if !ok {
 		return nil, status.Error(codes.NotFound, "not found")
 	}

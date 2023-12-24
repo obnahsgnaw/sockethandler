@@ -2,7 +2,7 @@ package impl
 
 import (
 	"context"
-	"github.com/obnahsgnaw/rpc/pkg/rpc"
+	"github.com/obnahsgnaw/rpc/pkg/rpcclient"
 	bindv1 "github.com/obnahsgnaw/socketapi/gen/bind/v1"
 	connv1 "github.com/obnahsgnaw/socketapi/gen/conninfo/v1"
 	groupv1 "github.com/obnahsgnaw/socketapi/gen/group/v1"
@@ -15,16 +15,20 @@ import (
 
 type Gateway struct {
 	ctx context.Context
-	m   *rpc.Manager
+	m   *rpcclient.Manager
 	dbp codec.DataBuilderProvider
 }
 
-func NewGateway(ctx context.Context, m *rpc.Manager) *Gateway {
+func NewGateway(ctx context.Context, m *rpcclient.Manager) *Gateway {
 	return &Gateway{
 		ctx: ctx,
 		m:   m,
 		dbp: codec.NewDbp(),
 	}
+}
+
+func (s *Gateway) Manager() *rpcclient.Manager {
+	return s.m
 }
 
 func (s *Gateway) BindId(gw string, fd int64, id ...*bindv1.Id) error {

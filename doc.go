@@ -3,12 +3,14 @@ package sockethandler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/obnahsgnaw/application/endtype"
-	"github.com/obnahsgnaw/application/pkg/url"
+	"github.com/obnahsgnaw/application/pkg/logging/logger"
 	"github.com/obnahsgnaw/application/pkg/utils"
 	"github.com/obnahsgnaw/application/regtype"
 	"github.com/obnahsgnaw/application/servertype"
 	"github.com/obnahsgnaw/application/service/regCenter"
 	http2 "github.com/obnahsgnaw/http"
+	"github.com/obnahsgnaw/http/engine"
+	"github.com/obnahsgnaw/http/listener"
 	"github.com/obnahsgnaw/sockethandler/sockettype"
 	"net/http"
 )
@@ -17,7 +19,6 @@ type DocConfig struct {
 	id       string
 	endType  endtype.EndType
 	servType servertype.ServerType
-	Origin   url.Origin
 	RegTtl   int64
 	CacheTtl int
 	GwPrefix string
@@ -36,29 +37,31 @@ type DocItem struct {
 
 type DocServer struct {
 	config  *DocConfig
-	engine  *gin.Engine
+	engine  *http2.Http
 	regInfo *regCenter.RegInfo
 	prefix  string
 }
 
 // doc-index --> id-list --> key list
 
-// NewDocServer new a socket doc server
-func NewDocServer(clusterId string, config *DocConfig) *DocServer {
-	e, _ := http2.New(&http2.Config{
-		Name:           config.id,
+func NewDocEngine(lr *listener.PortedListener, name string, cnf *logger.Config) (*http2.Http, error) {
+	e, err := engine.New(&engine.Config{
+		Name:           name,
 		DebugMode:      false,
 		LogDebug:       true,
 		AccessWriter:   nil,
 		ErrWriter:      nil,
 		TrustedProxies: nil,
 		Cors:           nil,
-		LogCnf:         nil,
+		LogCnf:         cnf,
 	})
-	return NewDocServerWithEngine(e, clusterId, config)
+	if err != nil {
+		return nil, err
+	}
+	return http2.New(e, lr), nil
 }
 
-func NewDocServerWithEngine(e *gin.Engine, clusterId string, config *DocConfig) *DocServer {
+func NewDocServer(e *http2.Http, clusterId string, config *DocConfig) *DocServer {
 	s := &DocServer{
 		config: config,
 		engine: e,
@@ -81,7 +84,7 @@ func NewDocServerWithEngine(e *gin.Engine, clusterId string, config *DocConfig) 
 			Type:    config.Doc.socketType.String(),
 			EndType: config.endType.String(),
 		},
-		Host: config.Origin.Host.String(),
+		Host: s.engine.Host().String(),
 		Val:  "",
 		Ttl:  config.RegTtl,
 		Values: map[string]string{
@@ -114,18 +117,18 @@ func (s *DocServer) initDocRoute() {
 			_, _ = c.Writer.Write(tmpl)
 		}
 	}
-	s.engine.GET(s.config.Doc.path, hd)
+	s.engine.Engine().GET(s.config.Doc.path, hd)
 }
 
 func (s *DocServer) Start() error {
-	if err := s.engine.Run(s.config.Origin.Host.String()); err != nil {
+	if err := s.engine.Run(); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (s *DocServer) DocUrl() string {
-	return s.config.Origin.String() + s.config.Doc.path
+	return "http://" + s.engine.Host().String() + s.config.Doc.path
 }
 
 func (s *DocServer) SyncStart(cb func(error)) {
