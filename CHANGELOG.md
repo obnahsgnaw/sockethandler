@@ -1,4 +1,12 @@
 
+<a name="v0.20.10"></a>
+## [v0.20.10](https://8.140.161.172/wangsb/wgateway/compare/v0.20.9...v0.20.10) (2023-12-26)
+
+### Bug Fixes
+
+* **go.mod:** fix rpc deps
+
+
 <a name="v0.20.9"></a>
 ## [v0.20.9](https://8.140.161.172/wangsb/wgateway/compare/v0.20.8...v0.20.9) (2023-12-24)
 
