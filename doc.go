@@ -121,7 +121,7 @@ func (s *DocServer) initDocRoute() {
 }
 
 func (s *DocServer) Start() error {
-	if err := s.engine.Run(); err != nil {
+	if err := s.engine.RunAndServ(); err != nil {
 		return err
 	}
 	return nil
