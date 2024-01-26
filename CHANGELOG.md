@@ -1,4 +1,12 @@
 
+<a name="v0.20.15"></a>
+## [v0.20.15](https://8.140.161.172/wangsb/wgateway/compare/v0.20.14...v0.20.15) (2024-01-26)
+
+### Bug Fixes
+
+* **gateway.go:** fix broadcastall
+
+
 <a name="v0.20.14"></a>
 ## [v0.20.14](https://8.140.161.172/wangsb/wgateway/compare/v0.20.13...v0.20.14) (2023-12-29)
 
