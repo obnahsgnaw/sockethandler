@@ -10,6 +10,7 @@ import (
 	slbv1 "github.com/obnahsgnaw/socketapi/gen/slb/v1"
 	"github.com/obnahsgnaw/socketutil/codec"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -261,9 +262,15 @@ func (s *Gateway) Broadcast(gw string, group string, act codec.Action, data code
 }
 
 func (s *Gateway) BroadcastAll(group string, act codec.Action, data codec.DataPtr, id string) {
+	var wg sync.WaitGroup
 	for _, gw := range s.m.Get("gateway") {
-		_ = s.Broadcast(gw, group, act, data, id)
+		wg.Add(1)
+		go func(gw1 string) {
+			_ = s.Broadcast(gw1, group, act, data, id)
+			wg.Done()
+		}(gw)
 	}
+	wg.Wait()
 }
 
 func (s *Gateway) SetActionSlb(gw string, fd, action, slb int64) error {
