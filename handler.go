@@ -237,13 +237,12 @@ func (s *Handler) Listen(act codec.Action, structure action.DataStructure, handl
 	})
 }
 
-func (s *Handler) docConfig(proxyPrefix string, provider func() ([]byte, error), public bool) *DocConfig {
+func (s *Handler) docConfig(provider func() ([]byte, error), public bool) *DocConfig {
 	return &DocConfig{
 		id:       s.id,
 		endType:  s.endType,
 		servType: s.serverType,
 		RegTtl:   s.app.RegTtl(),
-		GwPrefix: proxyPrefix,
 		Doc: DocItem{
 			socketType: s.socketType,
 			Title:      s.name,
