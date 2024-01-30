@@ -20,11 +20,11 @@ func RpcIgRun(ig bool) Option {
 	}
 }
 
-func DocServ(ins *http.Http, proxyPrefix string, provider func() ([]byte, error), public, igEngineRun bool) Option {
+func DocServ(ins *http.Http, provider func() ([]byte, error), public, igEngineRun bool) Option {
 	return func(s *Handler) {
 		if ins != nil {
 			s.docIgRun = igEngineRun
-			s.docServer = NewDocServer(ins, s.app.ID(), s.docConfig(proxyPrefix, provider, public))
+			s.docServer = NewDocServer(ins, s.app.ID(), s.docConfig(provider, public))
 			s.engin = ins
 		}
 	}
