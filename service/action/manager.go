@@ -41,6 +41,8 @@ func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec
 
 type User struct {
 	Id   uint32
+	Cid  uint32
+	Oid  uint32
 	Name string
 }
 
