@@ -1,4 +1,12 @@
 
+<a name="v0.20.17"></a>
+## [v0.20.17](https://8.140.161.172/wangsb/wgateway/compare/v0.20.16...v0.20.17) (2024-02-06)
+
+### Bug Fixes
+
+* **handler:** added cid oid on user
+
+
 <a name="v0.20.16"></a>
 ## [v0.20.16](https://8.140.161.172/wangsb/wgateway/compare/v0.20.15...v0.20.16) (2024-01-30)
 
