@@ -43,7 +43,6 @@ func main() {
 		sockettype.TCP,
 		sockethandler.DocServ(
 			de,
-			"/v1/doc/socket/tcp",
 			func() ([]byte, error) {
 				return []byte("ok"), nil
 			},
