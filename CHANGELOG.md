@@ -1,4 +1,12 @@
 
+<a name="v0.20.18"></a>
+## [v0.20.18](https://8.140.161.172/wangsb/wgateway/compare/v0.20.17...v0.20.18) (2024-02-07)
+
+### Bug Fixes
+
+* **handler:** fix handler user
+
+
 <a name="v0.20.17"></a>
 ## [v0.20.17](https://8.140.161.172/wangsb/wgateway/compare/v0.20.16...v0.20.17) (2024-02-06)
 
