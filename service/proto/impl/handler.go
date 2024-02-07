@@ -46,12 +46,15 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 
 	// handle
 	var u *action.User
+	attr := q.User.Attrs
+	if attr == nil {
+		attr = make(map[string]string)
+	}
 	if q.User != nil {
 		u = &action.User{
 			Id:   uint32(int(q.User.Id)),
-			Cid:  uint32(int(q.User.Cid)),
-			Oid:  uint32(int(q.User.Oid)),
 			Name: q.User.Name,
+			Attr: attr,
 		}
 	}
 	req := action.NewHandlerReq(q.Gateway, act, q.Fd, u, data, q.BindIds)

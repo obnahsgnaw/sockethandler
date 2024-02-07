@@ -41,9 +41,15 @@ func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec
 
 type User struct {
 	Id   uint32
-	Cid  uint32
-	Oid  uint32
 	Name string
+	Attr map[string]string
+}
+
+func (s *User) GetAttr(key, defVal string) string {
+	if v, ok := s.Attr[key]; ok {
+		return v
+	}
+	return defVal
 }
 
 type Handler func(context.Context, *HandlerReq) (codec.Action, codec.DataPtr, error)
