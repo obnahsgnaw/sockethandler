@@ -18,7 +18,6 @@ import (
 	"github.com/obnahsgnaw/socketutil/codec"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -340,15 +339,8 @@ func (s *Handler) watch(register regCenter.Register) error {
 }
 
 func (s *Handler) initLogger() {
-	var err error
-	s.logCnf = logger.CopyCnfWithLevel(s.app.LogConfig())
-	if s.logCnf != nil {
-		s.logCnf.AddSubDir(filepath.Join(s.endType.String(), utils.ToStr(s.serverType.String(), "-", s.id)))
-		s.logCnf.SetFilename(utils.ToStr(s.serverType.String(), "-", s.id))
-		s.logCnf.ReplaceTraceLevel(zap.NewAtomicLevelAt(zap.FatalLevel))
-	}
-	s.logger, err = logger.New(utils.ToStr(s.serverType.String(), ":", s.id), s.logCnf, s.app.Debugger().Debug())
-	s.addErr(err)
+	s.logCnf = s.app.LogConfig()
+	s.logger = s.app.Logger().Named(utils.ToStr(s.serverType.String(), "-", s.id))
 }
 
 // SetWssActionFlbNum 用于解决 wss的action能负载到和tcp同一个服务上去, wss服务可用,(最好就是tcp的端口， 这样tcp负载算法输入和wss输入就一样了)
