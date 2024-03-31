@@ -6,6 +6,7 @@ import (
 	"github.com/obnahsgnaw/application/endtype"
 	"github.com/obnahsgnaw/application/pkg/logging/logger"
 	"github.com/obnahsgnaw/application/pkg/url"
+	"github.com/obnahsgnaw/application/service/regCenter"
 	"github.com/obnahsgnaw/rpc"
 	"github.com/obnahsgnaw/sockethandler"
 	"github.com/obnahsgnaw/sockethandler/service/action"
@@ -15,13 +16,13 @@ import (
 )
 
 func main() {
+	reg, _ := regCenter.NewEtcdRegister([]string{"127.0.0.1:2379"}, time.Second*5)
 	app := application.New(
-		application.NewCluster("dev", "Dev"),
 		"demo",
 		application.Debug(func() bool {
 			return true
 		}),
-		application.EtcdRegister([]string{"127.0.0.1:2379"}, time.Second*5),
+		application.Register(reg, 5),
 		application.Logger(&logger.Config{
 			Dir:        "/Users/wangshanbo/Documents/Data/projects/sockethandler/out",
 			MaxSize:    5,
@@ -32,8 +33,8 @@ func main() {
 		}),
 	)
 	defer app.Release()
-	l, _ := rpc.NewListener(url.Host{Ip: "127.0.0.1", Port: 9001})
-	r := sockethandler.NewRpc(app, "uav", "connect", endtype.Frontend, sockettype.TCP, l)
+	l, _ := rpc.NewListener(url.Host{Ip: "127.0.0.1", Port: 9011})
+	r := sockethandler.NewRpc(app, "uav", "connect", endtype.Frontend, sockettype.TCP, l, nil)
 	de, _ := sockethandler.NewDocEngine(l, "uav", nil)
 	s := sockethandler.New(app, r,
 		"uav",

@@ -24,7 +24,7 @@ func DocServ(ins *http.Http, provider func() ([]byte, error), public, igEngineRu
 	return func(s *Handler) {
 		if ins != nil {
 			s.docIgRun = igEngineRun
-			s.docServer = NewDocServer(ins, s.app.ID(), s.docConfig(provider, public))
+			s.docServer = NewDocServer(ins, s.app.Cluster().Id(), s.docConfig(provider, public))
 			s.engin = ins
 		}
 	}
