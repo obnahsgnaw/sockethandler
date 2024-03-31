@@ -44,15 +44,21 @@ type DocServer struct {
 // doc-index --> id-list --> key list
 
 func NewDocEngine(lr *listener.PortedListener, name string, cnf *logger.Config) (*http2.Http, error) {
+	aw, err := logger.NewDefAccessWriter(cnf, false)
+	if err != nil {
+		return nil, err
+	}
+	ew, err := logger.NewDefErrorWriter(cnf, false)
+	if err != nil {
+		return nil, err
+	}
 	e, err := engine.New(&engine.Config{
 		Name:           name,
 		DebugMode:      false,
-		LogDebug:       true,
-		AccessWriter:   nil,
-		ErrWriter:      nil,
+		AccessWriter:   aw,
+		ErrWriter:      ew,
 		TrustedProxies: nil,
 		Cors:           nil,
-		LogCnf:         cnf,
 	})
 	if err != nil {
 		return nil, err
@@ -80,7 +86,7 @@ func NewDocServer(e *http2.Http, clusterId string, config *DocConfig) *DocServer
 			Type:    config.Doc.socketType.String(),
 			EndType: config.endType.String(),
 		},
-		Host: s.engine.Host().String(),
+		Host: s.engine.Host(),
 		Val:  "",
 		Ttl:  config.RegTtl,
 		Values: map[string]string{
@@ -124,7 +130,7 @@ func (s *DocServer) Start() error {
 }
 
 func (s *DocServer) DocUrl() string {
-	return "http://" + s.engine.Host().String() + s.config.Doc.path
+	return "http://" + s.engine.Host() + s.config.Doc.path
 }
 
 func (s *DocServer) SyncStart(cb func(error)) {

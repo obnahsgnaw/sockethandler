@@ -23,29 +23,29 @@ import (
 )
 
 type Handler struct {
+	app          *application.Application
 	id           string
 	module       string
 	subModule    string
 	name         string
-	app          *application.Application
 	endType      endtype.EndType
 	serverType   servertype.ServerType
 	socketType   sockettype.SocketType
 	rpcServer    *ManagedRpc
-	rpcIgRun     bool
 	logger       *zap.Logger
 	logCnf       *logger.Config
+	engin        *http.Http
 	docServer    *DocServer
-	docIgRun     bool
 	regInfo      *regCenter.RegInfo // actions
 	tcpGwRegInfo *regCenter.RegInfo // tcp gateway
 	wssGwRegInfo *regCenter.RegInfo // wss gateway
 	tcpGw        *impl.Gateway
 	wssGw        *impl.Gateway
+	rpcIgRun     bool
+	docIgRun     bool
 	errs         []error
 	flbNum       int
 	actListeners []func(manager *action.Manager)
-	engin        *http.Http
 }
 
 func New(app *application.Application, rps *ManagedRpc, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, o ...Option) *Handler {
@@ -82,7 +82,7 @@ func New(app *application.Application, rps *ManagedRpc, module, subModule, name 
 		}
 	})
 	s.tcpGwRegInfo = &regCenter.RegInfo{
-		AppId:   app.ID(),
+		AppId:   app.Cluster().Id(),
 		RegType: regtype.Rpc,
 		ServerInfo: regCenter.ServerInfo{
 			Id:      sockettype.TCP.String() + "-gateway",
@@ -92,7 +92,7 @@ func New(app *application.Application, rps *ManagedRpc, module, subModule, name 
 		},
 	}
 	s.wssGwRegInfo = &regCenter.RegInfo{
-		AppId:   app.ID(),
+		AppId:   app.Cluster().Id(),
 		RegType: regtype.Rpc,
 		ServerInfo: regCenter.ServerInfo{
 			Id:      sockettype.WSS.String() + "-gateway",
@@ -124,25 +124,9 @@ func (s *Handler) EndType() endtype.EndType {
 	return s.endType
 }
 
-// Release resource
-func (s *Handler) Release() {
-	if s.rpcServer != nil {
-		s.rpcServer.s.Release()
-	}
-	if s.app.Register() != nil {
-		if s.docServer != nil {
-			_ = s.app.DoUnregister(s.docServer.RegInfo(), func(msg string) {
-				if s.logger != nil {
-					s.logger.Debug(msg)
-				}
-			})
-		}
-		_ = s.register(s.app.Register(), false)
-	}
-	if s.logger != nil {
-		s.logger.Info("released")
-		_ = s.logger.Sync()
-	}
+// SocketType return the server socket type
+func (s *Handler) SocketType() sockettype.SocketType {
+	return s.socketType
 }
 
 // Run start run
@@ -156,7 +140,7 @@ func (s *Handler) Run(failedCb func(error)) {
 		s.logger.Debug("doc server enabled")
 		s.logger.Info("doc url=" + s.docServer.DocUrl())
 		if !s.docIgRun {
-			s.logger.Info(utils.ToStr("doc server[", s.docServer.engine.Host().String(), "] start and serving..."))
+			s.logger.Info(utils.ToStr("doc server[", s.docServer.engine.Host(), "] start and serving..."))
 			s.docServer.SyncStart(failedCb)
 		}
 		if s.app.Register() != nil {
@@ -191,6 +175,27 @@ func (s *Handler) Run(failedCb func(error)) {
 	}
 }
 
+// Release resource
+func (s *Handler) Release() {
+	if s.rpcServer != nil {
+		s.rpcServer.s.Release()
+	}
+	if s.app.Register() != nil {
+		if s.docServer != nil {
+			_ = s.app.DoUnregister(s.docServer.RegInfo(), func(msg string) {
+				if s.logger != nil {
+					s.logger.Debug(msg)
+				}
+			})
+		}
+		_ = s.register(s.app.Register(), false)
+	}
+	if s.logger != nil {
+		s.logger.Info("released")
+		_ = s.logger.Sync()
+	}
+}
+
 func (s *Handler) TcpGateway() *impl.Gateway {
 	return s.tcpGw
 }
@@ -201,11 +206,6 @@ func (s *Handler) WssGateway() *impl.Gateway {
 
 func (s *Handler) ActionManager() *impl.ManagerProvider {
 	return s.rpcServer.Manager()
-}
-
-// SocketType return the server socket type
-func (s *Handler) SocketType() sockettype.SocketType {
-	return s.socketType
 }
 
 // Logger return the logger
@@ -255,7 +255,7 @@ func (s *Handler) docConfig(provider func() ([]byte, error), public bool) *DocCo
 
 func (s *Handler) initRegInfo() {
 	s.regInfo = &regCenter.RegInfo{
-		AppId:   s.app.ID(),
+		AppId:   s.app.Cluster().Id(),
 		RegType: regtype.Rpc,
 		ServerInfo: regCenter.ServerInfo{
 			Id:      s.id,
