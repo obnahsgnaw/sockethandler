@@ -6,6 +6,7 @@ import (
 	"github.com/obnahsgnaw/application"
 	"github.com/obnahsgnaw/application/endtype"
 	"github.com/obnahsgnaw/application/pkg/logging/logger"
+	"github.com/obnahsgnaw/application/pkg/security"
 	"github.com/obnahsgnaw/application/pkg/utils"
 	"github.com/obnahsgnaw/application/regtype"
 	"github.com/obnahsgnaw/application/servertype"
@@ -41,11 +42,10 @@ type Handler struct {
 	wssGwRegInfo *regCenter.RegInfo // wss gateway
 	tcpGw        *impl.Gateway
 	wssGw        *impl.Gateway
-	rpcIgRun     bool
-	docIgRun     bool
 	errs         []error
 	flbNum       int
 	actListeners []func(manager *action.Manager)
+	running      bool
 }
 
 func New(app *application.Application, rps *ManagedRpc, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, o ...Option) *Handler {
@@ -131,6 +131,9 @@ func (s *Handler) SocketType() sockettype.SocketType {
 
 // Run start run
 func (s *Handler) Run(failedCb func(error)) {
+	if s.running {
+		return
+	}
 	if s.errs != nil {
 		failedCb(s.errs[0])
 		return
@@ -139,10 +142,8 @@ func (s *Handler) Run(failedCb func(error)) {
 	if s.docServer != nil {
 		s.logger.Debug("doc server enabled")
 		s.logger.Info("doc url=" + s.docServer.DocUrl())
-		if !s.docIgRun {
-			s.logger.Info(utils.ToStr("doc server[", s.docServer.engine.Host(), "] start and serving..."))
-			s.docServer.SyncStart(failedCb)
-		}
+		s.logger.Info(utils.ToStr("doc server[", s.docServer.engine.Host(), "] start and serving..."))
+		s.docServer.SyncStart(security.RandAlpha(6), failedCb)
 		if s.app.Register() != nil {
 			if err := s.app.DoRegister(s.docServer.RegInfo(), func(msg string) {
 				s.logger.Debug(msg)
@@ -169,10 +170,9 @@ func (s *Handler) Run(failedCb func(error)) {
 		s.logger.Debug("action registered")
 	}
 	s.logger.Info("initialized")
-	if !s.rpcIgRun {
-		s.logger.Info(utils.ToStr("server[", s.rpcServer.Server().Host().String(), "] start and serving..."))
-		s.rpcServer.Server().Run(failedCb)
-	}
+	s.logger.Info(utils.ToStr("server[", s.rpcServer.Server().Host().String(), "] start and serving..."))
+	s.rpcServer.Server().Run(failedCb)
+	s.running = true
 }
 
 // Release resource
@@ -194,6 +194,7 @@ func (s *Handler) Release() {
 		s.logger.Info("released")
 		_ = s.logger.Sync()
 	}
+	s.running = false
 }
 
 func (s *Handler) TcpGateway() *impl.Gateway {

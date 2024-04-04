@@ -14,16 +14,9 @@ func with(s *Handler, options ...Option) {
 	}
 }
 
-func RpcIgRun(ig bool) Option {
-	return func(s *Handler) {
-		s.rpcIgRun = ig
-	}
-}
-
-func DocServ(ins *http.Http, provider func() ([]byte, error), public, igEngineRun bool) Option {
+func DocServ(ins *http.Http, provider func() ([]byte, error), public bool) Option {
 	return func(s *Handler) {
 		if ins != nil {
-			s.docIgRun = igEngineRun
 			s.docServer = NewDocServer(ins, s.app.Cluster().Id(), s.docConfig(provider, public))
 			s.engin = ins
 		}

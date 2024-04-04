@@ -44,11 +44,15 @@ type DocServer struct {
 // doc-index --> id-list --> key list
 
 func NewDocEngine(lr *listener.PortedListener, name string, cnf *logger.Config) (*http2.Http, error) {
-	aw, err := logger.NewDefAccessWriter(cnf, false)
+	aw, err := logger.NewDefAccessWriter(cnf, func() bool {
+		return false
+	})
 	if err != nil {
 		return nil, err
 	}
-	ew, err := logger.NewDefErrorWriter(cnf, false)
+	ew, err := logger.NewDefErrorWriter(cnf, func() bool {
+		return false
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -122,21 +126,19 @@ func (s *DocServer) initDocRoute() {
 	s.engine.Engine().GET(s.config.Doc.path, hd)
 }
 
-func (s *DocServer) Start() error {
-	if err := s.engine.RunAndServ(); err != nil {
-		return err
-	}
-	return nil
+func (s *DocServer) Start(key string, cb func(error)) {
+	s.engine.RunAndServWithKey(key, func(err error) {
+		cb(err)
+	})
 }
 
 func (s *DocServer) DocUrl() string {
 	return "http://" + s.engine.Host() + s.config.Doc.path
 }
 
-func (s *DocServer) SyncStart(cb func(error)) {
+func (s *DocServer) SyncStart(key string, cb func(error)) {
 	go func() {
-		if err := s.Start(); err != nil {
-			cb(err)
-		}
+		defer s.engine.CloseWithKey(key)
+		s.Start(key, cb)
 	}()
 }
