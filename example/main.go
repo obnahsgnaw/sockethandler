@@ -48,7 +48,6 @@ func main() {
 				return []byte("ok"), nil
 			},
 			true,
-			false,
 		),
 	)
 
