@@ -341,7 +341,7 @@ func (s *Handler) watch(register regCenter.Register) error {
 
 func (s *Handler) initLogger() {
 	s.logCnf = s.app.LogConfig()
-	s.logger = s.app.Logger().Named(utils.ToStr(s.serverType.String(), "-", s.endType.String(), "-", s.id))
+	s.logger = s.app.Logger().Named(utils.ToStr(s.id, "-", s.endType.String(), "-", s.serverType.String()))
 }
 
 // SetWssActionFlbNum 用于解决 wss的action能负载到和tcp同一个服务上去, wss服务可用,(最好就是tcp的端口， 这样tcp负载算法输入和wss输入就一样了)
