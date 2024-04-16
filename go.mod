@@ -4,9 +4,9 @@ go 1.19
 
 require (
 	github.com/gin-gonic/gin v1.9.1
-	github.com/obnahsgnaw/application v0.17.7
+	github.com/obnahsgnaw/application v0.17.8
 	github.com/obnahsgnaw/http v0.2.6
-	github.com/obnahsgnaw/rpc v0.6.5
+	github.com/obnahsgnaw/rpc v0.6.6
 	github.com/obnahsgnaw/socketapi v0.5.4
 	github.com/obnahsgnaw/socketutil v0.8.0
 	go.uber.org/zap v1.23.0
