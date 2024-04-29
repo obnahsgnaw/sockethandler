@@ -1,4 +1,12 @@
 
+<a name="v0.21.7"></a>
+## [v0.21.7](https://8.140.161.172/wangsb/wgateway/compare/v0.21.6...v0.21.7) (2024-04-29)
+
+### Bug Fixes
+
+* **handler.go:** fix close action listen
+
+
 <a name="v0.21.6"></a>
 ## [v0.21.6](https://8.140.161.172/wangsb/wgateway/compare/v0.21.5...v0.21.6) (2024-04-17)
 
