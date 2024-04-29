@@ -24,28 +24,29 @@ import (
 )
 
 type Handler struct {
-	app          *application.Application
-	id           string
-	module       string
-	subModule    string
-	name         string
-	endType      endtype.EndType
-	serverType   servertype.ServerType
-	socketType   sockettype.SocketType
-	rpcServer    *ManagedRpc
-	logger       *zap.Logger
-	logCnf       *logger.Config
-	engin        *http.Http
-	docServer    *DocServer
-	regInfo      *regCenter.RegInfo // actions
-	tcpGwRegInfo *regCenter.RegInfo // tcp gateway
-	wssGwRegInfo *regCenter.RegInfo // wss gateway
-	tcpGw        *impl.Gateway
-	wssGw        *impl.Gateway
-	errs         []error
-	flbNum       int
-	actListeners []func(manager *action.Manager)
-	running      bool
+	app           *application.Application
+	id            string
+	module        string
+	subModule     string
+	name          string
+	endType       endtype.EndType
+	serverType    servertype.ServerType
+	socketType    sockettype.SocketType
+	rpcServer     *ManagedRpc
+	logger        *zap.Logger
+	logCnf        *logger.Config
+	engin         *http.Http
+	docServer     *DocServer
+	regInfo       *regCenter.RegInfo // actions
+	tcpGwRegInfo  *regCenter.RegInfo // tcp gateway
+	wssGwRegInfo  *regCenter.RegInfo // wss gateway
+	tcpGw         *impl.Gateway
+	wssGw         *impl.Gateway
+	errs          []error
+	flbNum        int
+	actListeners  []func(manager *action.Manager)
+	running       bool
+	closeHandlers []action.Handler
 }
 
 func New(app *application.Application, rps *ManagedRpc, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, o ...Option) *Handler {
@@ -230,9 +231,22 @@ func (s *Handler) Engine() *http.Http {
 func (s *Handler) Listen(act codec.Action, structure action.DataStructure, handler action.Handler) {
 	s.actListeners = append(s.actListeners, func(manager *action.Manager) {
 		if _, _, _, ok := manager.GetHandler(act.Id); ok {
+			if act.Id == 0 {
+				s.closeHandlers = append(s.closeHandlers, handler)
+				return
+			}
 			panic("action[" + act.String() + "] already listened.")
 		}
-		manager.RegisterHandler(act, structure, handler)
+		if act.Id == 0 {
+			manager.RegisterHandler(act, structure, func(ctx context.Context, req *action.HandlerReq) (codec.Action, codec.DataPtr, error) {
+				for _, h := range s.closeHandlers {
+					_, _, _ = h(ctx, req)
+				}
+				return codec.Action{}, nil, nil
+			})
+		} else {
+			manager.RegisterHandler(act, structure, handler)
+		}
 		s.logger.Debug("listened action:" + act.Name)
 	})
 }
