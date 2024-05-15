@@ -7,7 +7,9 @@ import (
 )
 
 type Manager struct {
-	handlers sync.Map // action-id, action-handler
+	handlers      sync.Map // action-id, action-handler
+	closeHandlers []Handler
+	closeAction   codec.Action
 }
 
 func NewManager() *Manager {
@@ -64,7 +66,23 @@ type actionHandler struct {
 
 // RegisterHandler register an action with handler
 func (m *Manager) RegisterHandler(action codec.Action, ds DataStructure, handler Handler) {
+	if action.Id == m.closeAction.Id {
+		m.registerCloseHandler(handler)
+		return
+	}
 	m.handlers.Store(action.Id, actionHandler{action: action, structure: ds, handler: handler})
+}
+
+func (m *Manager) registerCloseHandler(handler Handler) {
+	m.closeHandlers = append(m.closeHandlers, handler)
+	if _, ok := m.handlers.Load(m.closeAction.Id); !ok {
+		m.handlers.Store(m.closeAction.Id, actionHandler{action: m.closeAction, structure: func() codec.DataPtr { return nil }, handler: func(ctx context.Context, req *HandlerReq) (codec.Action, codec.DataPtr, error) {
+			for _, h := range m.closeHandlers {
+				_, _, _ = h(ctx, req)
+			}
+			return codec.Action{}, nil, nil
+		}})
+	}
 }
 
 func (m *Manager) GetHandler(actionId codec.ActionId) (codec.Action, DataStructure, Handler, bool) {
