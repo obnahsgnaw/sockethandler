@@ -1,4 +1,12 @@
 
+<a name="v0.21.8"></a>
+## [v0.21.8](https://8.140.161.172/wangsb/wgateway/compare/v0.21.7...v0.21.8) (2024-05-15)
+
+### Bug Fixes
+
+* **manager:** fix close action handler
+
+
 <a name="v0.21.7"></a>
 ## [v0.21.7](https://8.140.161.172/wangsb/wgateway/compare/v0.21.6...v0.21.7) (2024-04-29)
 
