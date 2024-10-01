@@ -9,7 +9,9 @@ import (
 	messagev1 "github.com/obnahsgnaw/socketapi/gen/message/v1"
 	slbv1 "github.com/obnahsgnaw/socketapi/gen/slb/v1"
 	"github.com/obnahsgnaw/socketutil/codec"
+	"google.golang.org/grpc"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -18,13 +20,15 @@ type Gateway struct {
 	ctx context.Context
 	m   *rpcclient.Manager
 	dbp codec.DataBuilderProvider
+	id  string
 }
 
-func NewGateway(ctx context.Context, m *rpcclient.Manager) *Gateway {
+func NewGateway(ctx context.Context, id string, m *rpcclient.Manager) *Gateway {
 	return &Gateway{
 		ctx: ctx,
 		m:   m,
 		dbp: codec.NewDbp(),
+		id:  id,
 	}
 }
 
@@ -32,47 +36,59 @@ func (s *Gateway) Manager() *rpcclient.Manager {
 	return s.m
 }
 
-func (s *Gateway) BindId(gw string, fd int64, id ...*bindv1.Id) error {
-	cc, err := s.m.GetConn("gateway", gw, 0)
-	if err != nil {
-		return err
+func (s *Gateway) ParseRqId(gw string) (string, string) {
+	if strings.Contains(gw, ":@") {
+		gws := strings.Split(gw, "@")
+		return gws[1], gws[0]
 	}
-	c := bindv1.NewBindServiceClient(cc)
+	return gw, ""
+}
 
-	_, err = c.BindId(s.ctx, &bindv1.BindIdRequest{
-		Fd:  fd,
-		Ids: id,
+func (s *Gateway) BindId(gw string, fd int64, id ...*bindv1.Id) error {
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := bindv1.NewBindServiceClient(cc)
+
+		_, err := c.BindId(s.ctx, &bindv1.BindIdRequest{
+			Fd:  fd,
+			Ids: id,
+		})
+		return err
 	})
-	return err
 }
 
 func (s *Gateway) UnBindId(gw string, fd int64, typ ...string) error {
-	cc, err := s.m.GetConn("gateway", gw, 0)
-	if err != nil {
-		return err
-	}
-	c := bindv1.NewBindServiceClient(cc)
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := bindv1.NewBindServiceClient(cc)
 
-	_, err = c.UnBindId(s.ctx, &bindv1.UnBindIdRequest{
-		Fd:    fd,
-		Types: typ,
+		_, err := c.UnBindId(s.ctx, &bindv1.UnBindIdRequest{
+			Fd:    fd,
+			Types: typ,
+		})
+		return err
 	})
-	return err
 }
 
 func (s *Gateway) BindExist(gw string, id, typ string) (bool, error) {
-	cc, err := s.m.GetConn("gateway", gw, 0)
-	if err != nil {
-		return false, err
-	}
-	c := bindv1.NewBindServiceClient(cc)
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	var p *bindv1.BindExistResponse
+	err := s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := bindv1.NewBindServiceClient(cc)
 
-	p, err := c.BindExist(s.ctx, &bindv1.BindExistRequest{
-		Id: &bindv1.Id{
-			Typ: typ,
-			Id:  id,
-		},
+		var err1 error
+		p, err1 = c.BindExist(s.ctx, &bindv1.BindExistRequest{
+			Id: &bindv1.Id{
+				Typ: typ,
+				Id:  id,
+			},
+		})
+		return err1
 	})
+
 	if err != nil {
 		return false, err
 	}
@@ -114,15 +130,18 @@ func (a Addr) String() string {
 }
 
 func (s *Gateway) ConnInfo(gw string, fd int64) (ConnInfo, error) {
-	cc, err := s.m.GetConn("gateway", gw, 0)
-	if err != nil {
-		return ConnInfo{}, err
-	}
-	c := connv1.NewConnServiceClient(cc)
-
-	resp, err := c.Info(s.ctx, &connv1.ConnInfoRequest{
-		Fd: fd,
+	var rqId string
+	var resp *connv1.ConnInfoResponse
+	gw, rqId = s.ParseRqId(gw)
+	err := s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := connv1.NewConnServiceClient(cc)
+		var err1 error
+		resp, err1 = c.Info(s.ctx, &connv1.ConnInfoRequest{
+			Fd: fd,
+		})
+		return err1
 	})
+
 	if err != nil {
 		return ConnInfo{}, err
 	}
@@ -139,57 +158,61 @@ func (s *Gateway) ConnInfo(gw string, fd int64) (ConnInfo, error) {
 }
 
 func (s *Gateway) SendFdMessage(gw string, fd int64, act codec.Action, data codec.DataPtr) error {
-	cc, err := s.m.GetConn("gateway", gw, 1)
-	if err != nil {
-		return err
-	}
-	c := messagev1.NewMessageServiceClient(cc)
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	return s.m.HostCall(s.ctx, gw, 1, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := messagev1.NewMessageServiceClient(cc)
 
-	var pbMsg []byte
-	var jsonMsg []byte
-	if pbMsg, err = s.dbp.Provider(codec.Proto).Pack(data); err != nil {
-		return err
-	}
-	if jsonMsg, err = s.dbp.Provider(codec.Json).Pack(data); err != nil {
-		return err
-	}
+		var pbMsg []byte
+		var jsonMsg []byte
+		var err error
+		if pbMsg, err = s.dbp.Provider(codec.Proto).Pack(data); err != nil {
+			return err
+		}
+		if jsonMsg, err = s.dbp.Provider(codec.Json).Pack(data); err != nil {
+			return err
+		}
 
-	_, err = c.SendMessage(s.ctx, &messagev1.SendMessageRequest{
-		Target:      &messagev1.SendMessageRequest_Fd{Fd: fd},
-		ActionId:    uint32(act.Id),
-		ActionName:  act.Name,
-		JsonMessage: jsonMsg,
-		PbMessage:   pbMsg,
+		_, err = c.SendMessage(s.ctx, &messagev1.SendMessageRequest{
+			Target:      &messagev1.SendMessageRequest_Fd{Fd: fd},
+			ActionId:    uint32(act.Id),
+			ActionName:  act.Name,
+			JsonMessage: jsonMsg,
+			PbMessage:   pbMsg,
+		})
+		return err
 	})
-	return err
+
 }
 
 func (s *Gateway) SendIdMessage(gw string, id *messagev1.SendMessageRequest_BindId, act codec.Action, data codec.DataPtr) error {
-	cc, err := s.m.GetConn("gateway", gw, 1)
-	if err != nil {
-		return err
-	}
-	c := messagev1.NewMessageServiceClient(cc)
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	return s.m.HostCall(s.ctx, gw, 1, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := messagev1.NewMessageServiceClient(cc)
 
-	var pbMsg []byte
-	var jsonMsg []byte
-	if pbMsg, err = s.dbp.Provider(codec.Proto).Pack(data); err != nil {
-		return err
-	}
-	if jsonMsg, err = s.dbp.Provider(codec.Json).Pack(data); err != nil {
-		return err
-	}
+		var pbMsg []byte
+		var jsonMsg []byte
+		var err error
+		if pbMsg, err = s.dbp.Provider(codec.Proto).Pack(data); err != nil {
+			return err
+		}
+		if jsonMsg, err = s.dbp.Provider(codec.Json).Pack(data); err != nil {
+			return err
+		}
 
-	_, err = c.SendMessage(s.ctx, &messagev1.SendMessageRequest{
-		Target: &messagev1.SendMessageRequest_Id{
-			Id: id,
-		},
-		ActionId:    uint32(act.Id),
-		ActionName:  act.Name,
-		JsonMessage: jsonMsg,
-		PbMessage:   pbMsg,
+		_, err = c.SendMessage(s.ctx, &messagev1.SendMessageRequest{
+			Target: &messagev1.SendMessageRequest_Id{
+				Id: id,
+			},
+			ActionId:    uint32(act.Id),
+			ActionName:  act.Name,
+			JsonMessage: jsonMsg,
+			PbMessage:   pbMsg,
+		})
+		return err
 	})
-	return err
+
 }
 
 func (s *Gateway) SendIdMessageAll(id *messagev1.SendMessageRequest_BindId, act codec.Action, data codec.DataPtr) (err error) {
@@ -204,61 +227,65 @@ func (s *Gateway) SendIdMessageAll(id *messagev1.SendMessageRequest_BindId, act 
 }
 
 func (s *Gateway) JoinGroup(gw string, group, id string, fd int64) error {
-	cc, err := s.m.GetConn("gateway", gw, 2)
-	if err != nil {
-		return err
-	}
-	c := groupv1.NewGroupServiceClient(cc)
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	return s.m.HostCall(s.ctx, gw, 2, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := groupv1.NewGroupServiceClient(cc)
 
-	_, err = c.JoinGroup(s.ctx, &groupv1.JoinGroupRequest{
-		Group: &groupv1.Group{Name: group},
-		Member: &groupv1.Member{
-			Fd: fd,
-			Id: id,
-		},
+		_, err := c.JoinGroup(s.ctx, &groupv1.JoinGroupRequest{
+			Group: &groupv1.Group{Name: group},
+			Member: &groupv1.Member{
+				Fd: fd,
+				Id: id,
+			},
+		})
+		return err
 	})
-	return err
+
 }
 
 func (s *Gateway) LeaveGroup(gw string, group string, fd int64) error {
-	cc, err := s.m.GetConn("gateway", gw, 2)
-	if err != nil {
-		return err
-	}
-	c := groupv1.NewGroupServiceClient(cc)
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	return s.m.HostCall(s.ctx, gw, 2, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := groupv1.NewGroupServiceClient(cc)
 
-	_, err = c.LeaveGroup(s.ctx, &groupv1.LeaveGroupRequest{
-		Group: &groupv1.Group{Name: group},
-		Fd:    fd,
+		_, err := c.LeaveGroup(s.ctx, &groupv1.LeaveGroupRequest{
+			Group: &groupv1.Group{Name: group},
+			Fd:    fd,
+		})
+		return err
 	})
-	return err
+
 }
 
 func (s *Gateway) Broadcast(gw string, group string, act codec.Action, data codec.DataPtr, id string) error {
-	cc, err := s.m.GetConn("gateway", gw, 2)
-	if err != nil {
-		return err
-	}
-	c := groupv1.NewGroupServiceClient(cc)
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	return s.m.HostCall(s.ctx, gw, 2, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := groupv1.NewGroupServiceClient(cc)
 
-	var pbMsg []byte
-	var jsonMsg []byte
-	if pbMsg, err = s.dbp.Provider(codec.Proto).Pack(data); err != nil {
-		return err
-	}
-	if jsonMsg, err = s.dbp.Provider(codec.Json).Pack(data); err != nil {
-		return err
-	}
+		var pbMsg []byte
+		var jsonMsg []byte
+		var err error
+		if pbMsg, err = s.dbp.Provider(codec.Proto).Pack(data); err != nil {
+			return err
+		}
+		if jsonMsg, err = s.dbp.Provider(codec.Json).Pack(data); err != nil {
+			return err
+		}
 
-	_, err = c.BroadcastGroup(s.ctx, &groupv1.BroadcastGroupRequest{
-		Group:       &groupv1.Group{Name: group},
-		ActionId:    uint32(act.Id),
-		ActionName:  act.Name,
-		JsonMessage: jsonMsg,
-		PbMessage:   pbMsg,
-		Id:          id,
+		_, err = c.BroadcastGroup(s.ctx, &groupv1.BroadcastGroupRequest{
+			Group:       &groupv1.Group{Name: group},
+			ActionId:    uint32(act.Id),
+			ActionName:  act.Name,
+			JsonMessage: jsonMsg,
+			PbMessage:   pbMsg,
+			Id:          id,
+		})
+		return err
 	})
-	return err
+
 }
 
 func (s *Gateway) BroadcastAll(group string, act codec.Action, data codec.DataPtr, id string) {
@@ -274,16 +301,16 @@ func (s *Gateway) BroadcastAll(group string, act codec.Action, data codec.DataPt
 }
 
 func (s *Gateway) SetActionSlb(gw string, fd, action, slb int64) error {
-	cc, err := s.m.GetConn("gateway", gw, 0)
-	if err != nil {
-		return err
-	}
-	c := slbv1.NewSlbServiceClient(cc)
+	var rqId string
+	gw, rqId = s.ParseRqId(gw)
+	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+		c := slbv1.NewSlbServiceClient(cc)
 
-	_, err = c.SetActionSlb(s.ctx, &slbv1.ActionSlbRequest{
-		Fd:     fd,
-		Action: action,
-		Sbl:    slb,
+		_, err := c.SetActionSlb(s.ctx, &slbv1.ActionSlbRequest{
+			Fd:     fd,
+			Action: action,
+			Sbl:    slb,
+		})
+		return err
 	})
-	return err
 }
