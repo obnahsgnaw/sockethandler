@@ -59,26 +59,26 @@ func New(app *application.Application, rps *ManagedRpc, module, subModule, name 
 		serverType: sct.ToHandlerType(),
 		socketType: sct,
 		rpcServer:  rps,
-		tcpGw:      impl.NewGateway(app.Context(), rpcclient.NewManager()),
-		wssGw:      impl.NewGateway(app.Context(), rpcclient.NewManager()),
+		tcpGw:      impl.NewGateway(app.Context(), "tcp-"+module+"-"+subModule, rpcclient.NewManager()),
+		wssGw:      impl.NewGateway(app.Context(), "wss-"+module+"-"+subModule, rpcclient.NewManager()),
 	}
 	if s.serverType == "" {
 		s.addErr(s.handlerError("type invalid", errors.New("type not support")))
 	}
 	s.initLogger()
 	s.initRegInfo()
-	s.tcpGw.Manager().RegisterAfterHandler(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
+	s.tcpGw.Manager().RegisterAfterHandler(func(ctx context.Context, head rpcclient.Header, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
 		if err != nil {
-			s.logger.Error(utils.ToStr("rpc call tcp-gateway[", method, "] failed, ", err.Error()), zap.Any("req", req), zap.Any("resp", reply))
+			s.logger.Error(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " tcp-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		} else {
-			s.logger.Debug(utils.ToStr("rpc call tcp-gateway[", method, "] success"), zap.Any("req", req), zap.Any("resp", reply))
+			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " tcp-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		}
 	})
-	s.wssGw.Manager().RegisterAfterHandler(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
+	s.wssGw.Manager().RegisterAfterHandler(func(ctx context.Context, head rpcclient.Header, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
 		if err != nil {
-			s.logger.Error(utils.ToStr("rpc call wss-gateway[", method, "] failed, ", err.Error()), zap.Any("req", req), zap.Any("resp", reply))
+			s.logger.Error(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " wss-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		} else {
-			s.logger.Debug(utils.ToStr("rpc call wss-gateway[", method, "] success"), zap.Any("req", req), zap.Any("resp", reply))
+			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " wss-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		}
 	})
 	s.tcpGwRegInfo = &regCenter.RegInfo{
