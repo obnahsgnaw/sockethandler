@@ -56,7 +56,15 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 			u.Attr = make(map[string]string)
 		}
 	}
-	req := action.NewHandlerReq(q.Gateway, act, q.Fd, u, data, q.BindIds)
+	var target *action.Target
+	if q.Target != nil {
+		target = &action.Target{
+			Type:   q.Target.Type,
+			Id:     q.Target.Id,
+			Master: q.Target.Master,
+		}
+	}
+	req := action.NewHandlerReq(q.Gateway, act, q.Fd, u, data, q.BindIds, target)
 
 	respAction, respData, err := handler(ctx, req)
 	if err != nil {

@@ -23,6 +23,7 @@ type HandlerReq struct {
 	idMap   map[string]string
 	Data    codec.DataPtr
 	User    *User
+	Target  *Target
 }
 
 func (q *HandlerReq) BondId(typ string) (string, bool) {
@@ -30,7 +31,10 @@ func (q *HandlerReq) BondId(typ string) (string, bool) {
 	return id, ok
 }
 
-func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec.DataPtr, ids map[string]string) *HandlerReq {
+func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec.DataPtr, ids map[string]string, target *Target) *HandlerReq {
+	if target == nil {
+		target = &Target{}
+	}
 	return &HandlerReq{
 		Action:  action,
 		Gateway: gw,
@@ -38,6 +42,7 @@ func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec
 		idMap:   ids,
 		Data:    data,
 		User:    u,
+		Target:  target,
 	}
 }
 
@@ -52,6 +57,12 @@ func (s *User) GetAttr(key, defVal string) string {
 		return v
 	}
 	return defVal
+}
+
+type Target struct {
+	Type   string
+	Id     string
+	Master string
 }
 
 type Handler func(context.Context, *HandlerReq) (codec.Action, codec.DataPtr, error)
