@@ -280,7 +280,11 @@ func (s *Handler) handlerError(msg string, err error) error {
 func (s *Handler) register(register regCenter.Register, reg bool) error {
 	return s.rpcServer.Manager().GetManager(s.socketType.ToHandlerSocketType()).RangeHandlerActions(func(act codec.Action) error {
 		prefix := s.regInfo.Prefix()
-		key := strings.TrimPrefix(strings.Join([]string{prefix, s.regInfo.ServerInfo.Id, s.regInfo.Host, act.Id.String()}, "/"), "/")
+		authenticateType := ""
+		if strings.HasPrefix(act.Name, "authenticate:") {
+			authenticateType = strings.TrimPrefix(act.Name, "authenticate:") + ":"
+		}
+		key := strings.TrimPrefix(strings.Join([]string{prefix, s.regInfo.ServerInfo.Id, s.regInfo.Host, authenticateType + act.Id.String()}, "/"), "/")
 		if reg {
 			val := act.Name
 			if s.flbNum > 0 {
