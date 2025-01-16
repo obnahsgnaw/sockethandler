@@ -1,4 +1,16 @@
 
+<a name="v0.21.10"></a>
+## [v0.21.10](https://8.140.161.172/wangsb/wgateway/compare/v0.21.9...v0.21.10) (2025-01-16)
+
+
+<a name="v0.21.9"></a>
+## [v0.21.9](https://8.140.161.172/wangsb/wgateway/compare/v0.21.8...v0.21.9) (2024-10-01)
+
+### Bug Fixes
+
+* **x:** x
+
+
 <a name="v0.21.8"></a>
 ## [v0.21.8](https://8.140.161.172/wangsb/wgateway/compare/v0.21.7...v0.21.8) (2024-05-15)
 
