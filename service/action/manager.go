@@ -63,6 +63,8 @@ type Target struct {
 	Type   string
 	Id     string
 	Master string
+	Cid    uint32
+	Uid    uint32
 }
 
 type Handler func(context.Context, *HandlerReq) (codec.Action, codec.DataPtr, error)

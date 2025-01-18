@@ -62,6 +62,8 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 			Type:   q.Target.Type,
 			Id:     q.Target.Id,
 			Master: q.Target.Master,
+			Cid:    q.Target.Cid,
+			Uid:    q.Target.Uid,
 		}
 	}
 	req := action.NewHandlerReq(q.Gateway, act, q.Fd, u, data, q.BindIds, target)
