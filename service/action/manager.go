@@ -3,6 +3,7 @@ package action
 import (
 	"context"
 	"github.com/obnahsgnaw/socketutil/codec"
+	"strconv"
 	"sync"
 )
 
@@ -59,12 +60,44 @@ func (s *User) GetAttr(key, defVal string) string {
 	return defVal
 }
 
+func (s *User) Uid() uint32 {
+	return s.Id
+}
+
+func (s *User) Uno() string {
+	return s.GetAttr("user_id", "")
+}
+
+func (s *User) Cid() uint32 {
+	v, _ := strconv.Atoi(s.GetAttr("company_id", "0"))
+	return uint32(v)
+}
+
+func (s *User) Cno() string {
+	return s.GetAttr("company_no", "")
+}
+
+func (s *User) CProject() string {
+	return s.GetAttr("company_project", "")
+}
+
+func (s *User) COid() uint32 {
+	v, _ := strconv.Atoi(s.GetAttr("company_organization_id", "0"))
+	return uint32(v)
+}
+
+func (s *User) Oid() uint32 {
+	v, _ := strconv.Atoi(s.GetAttr("organization_id", "0"))
+	return uint32(v)
+}
+
 type Target struct {
-	Type   string
-	Id     string
-	Master string
-	Cid    uint32
-	Uid    uint32
+	Type     string
+	Id       string
+	Master   string
+	Cid      uint32
+	Uid      uint32
+	Protocol string
 }
 
 type Handler func(context.Context, *HandlerReq) (codec.Action, codec.DataPtr, error)
