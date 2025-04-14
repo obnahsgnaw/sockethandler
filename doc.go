@@ -74,7 +74,7 @@ func NewDocServer(e *http2.Http, clusterId string, config *DocConfig) *DocServer
 	s := &DocServer{
 		config: config,
 		engine: e,
-		prefix: utils.ToStr("/", config.endType.String(), "-", config.Doc.socketType.ToServerType().String(), "-docs"), // the same prefix with the socket handler
+		prefix: utils.ToStr("/", config.endType.String(), "-", config.servType.String(), "-docs"), // the same prefix with the socket handler
 	}
 	s.config.Doc.path = utils.ToStr(s.prefix, "/", s.config.Doc.Module, "/", s.config.Doc.SubModule)
 	public := "0"

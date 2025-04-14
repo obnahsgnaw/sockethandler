@@ -32,7 +32,7 @@ func toCodecName(format string) codec.Name {
 
 func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest) (*handlerv1.HandleResponse, error) {
 	// fetch action handler
-	act, structure, handler, ok := s.manager.GetManager(q.Typ).GetHandler(codec.ActionId(q.ActionId))
+	act, structure, handler, ok := s.manager.GetManager(q.BusinessChannel).GetHandler(codec.ActionId(q.ActionId))
 	if !ok {
 		return nil, status.Error(codes.NotFound, "not found")
 	}
