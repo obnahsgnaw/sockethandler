@@ -9,7 +9,6 @@ import (
 	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
 	"github.com/obnahsgnaw/sockethandler/service/action"
 	"github.com/obnahsgnaw/sockethandler/service/proto/impl"
-	"github.com/obnahsgnaw/sockethandler/sockettype"
 )
 
 type ManagedRpc struct {
@@ -39,9 +38,9 @@ func InitRpc(s *rpc.Server) *ManagedRpc {
 	}
 }
 
-func NewRpc(app *application.Application, module, subModule string, et endtype.EndType, sct sockettype.SocketType, lr *listener.PortedListener, p *rpc.PServer, o ...rpc.Option) *ManagedRpc {
+func NewRpc(app *application.Application, module, subModule string, et endtype.EndType, businessChannel string, lr *listener.PortedListener, p *rpc.PServer, o ...rpc.Option) *ManagedRpc {
 	id := module + "-" + subModule
-	s := rpc.New(app, lr, id, utils.ToStr(sct.ToServerType().String(), "-", id, "-rpc"), et, p, o...)
+	s := rpc.New(app, lr, id, utils.ToStr(businessChannel, "-", id, "-rpc"), et, p, o...)
 	am := impl.NewManagerProvider(func() *action.Manager {
 		return action.NewManager()
 	})

@@ -32,6 +32,10 @@ func NewGateway(ctx context.Context, id string, m *rpcclient.Manager) *Gateway {
 	}
 }
 
+func (s *Gateway) Id() string {
+	return s.id
+}
+
 func (s *Gateway) Manager() *rpcclient.Manager {
 	return s.m
 }

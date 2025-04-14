@@ -10,7 +10,6 @@ import (
 	"github.com/obnahsgnaw/rpc"
 	"github.com/obnahsgnaw/sockethandler"
 	"github.com/obnahsgnaw/sockethandler/service/action"
-	"github.com/obnahsgnaw/sockethandler/sockettype"
 	"github.com/obnahsgnaw/socketutil/codec"
 	"time"
 )
@@ -34,14 +33,14 @@ func main() {
 	)
 	defer app.Release()
 	l, _ := rpc.NewListener(url.Host{Ip: "127.0.0.1", Port: 9011})
-	r := sockethandler.NewRpc(app, "uav", "connect", endtype.Frontend, sockettype.TCP, l, nil)
+	r := sockethandler.NewRpc(app, "uav", "connect", endtype.Frontend, "outer", l, nil, rpc.RegEnable())
 	de, _ := sockethandler.NewDocEngine(l, "uav", nil)
 	s := sockethandler.New(app, r,
 		"uav",
 		"connect",
 		"uav connect",
 		endtype.Frontend,
-		sockettype.TCP,
+		"outer",
 		sockethandler.DocServ(
 			de,
 			func() ([]byte, error) {

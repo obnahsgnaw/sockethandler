@@ -2,7 +2,6 @@ package sockettype
 
 import (
 	"github.com/obnahsgnaw/application/servertype"
-	handlerv1 "github.com/obnahsgnaw/socketapi/gen/handler/v1"
 )
 
 // SocketType 服务类型
@@ -33,19 +32,6 @@ func (s SocketType) ToHandlerType() servertype.ServerType {
 		return servertype.WssHdl
 	case UDP, UDP4, UDP6:
 		return servertype.UdpHdl
-	default:
-		panic("trans socket type to server type failed")
-	}
-}
-
-func (s SocketType) ToHandlerSocketType() handlerv1.SocketType {
-	switch s {
-	case TCP, TCP4, TCP6:
-		return handlerv1.SocketType_Tcp
-	case WSS:
-		return handlerv1.SocketType_Wss
-	case UDP, UDP4, UDP6:
-		return handlerv1.SocketType_Udp
 	default:
 		panic("trans socket type to server type failed")
 	}

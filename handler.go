@@ -2,7 +2,6 @@ package sockethandler
 
 import (
 	"context"
-	"errors"
 	"github.com/obnahsgnaw/application"
 	"github.com/obnahsgnaw/application/endtype"
 	"github.com/obnahsgnaw/application/pkg/logging/logger"
@@ -24,80 +23,55 @@ import (
 )
 
 type Handler struct {
-	app          *application.Application
-	id           string
-	module       string
-	subModule    string
-	name         string
-	endType      endtype.EndType
-	serverType   servertype.ServerType
-	socketType   sockettype.SocketType
-	rpcServer    *ManagedRpc
-	logger       *zap.Logger
-	logCnf       *logger.Config
-	engin        *http.Http
-	docServer    *DocServer
-	regInfo      *regCenter.RegInfo // actions
-	tcpGwRegInfo *regCenter.RegInfo // tcp gateway
-	wssGwRegInfo *regCenter.RegInfo // wss gateway
-	tcpGw        *impl.Gateway
-	wssGw        *impl.Gateway
-	errs         []error
-	flbNum       int
-	actListeners []func(manager *action.Manager)
-	running      bool
+	app             *application.Application
+	id              string
+	module          string
+	subModule       string
+	name            string
+	endType         endtype.EndType
+	businessChannel string
+	rpcServer       *ManagedRpc
+	logger          *zap.Logger
+	logCnf          *logger.Config
+	engin           *http.Http
+	docServer       *DocServer
+	regInfo         *regCenter.RegInfo            // actions
+	watchGwRegInfo  *regCenter.RegInfo            // current channel gateway
+	gateway         *impl.Gateway                 // current channel  gateway
+	watchGwRegInfos map[string]*regCenter.RegInfo // businessChannel => gateway
+	gateways        map[string]*impl.Gateway      // businessChannel => gateway
+	errs            []error
+	flbNum          int
+	actListeners    []func(manager *action.Manager)
+	running         bool
 }
 
-func New(app *application.Application, rps *ManagedRpc, module, subModule, name string, et endtype.EndType, sct sockettype.SocketType, o ...Option) *Handler {
+func New(app *application.Application, rps *ManagedRpc, module, subModule, name string, et endtype.EndType, businessChannel string, o ...Option) *Handler {
 	s := &Handler{
-		id:         module + "-" + subModule,
-		module:     module,
-		subModule:  subModule,
-		name:       name,
-		app:        app,
-		endType:    et,
-		serverType: sct.ToHandlerType(),
-		socketType: sct,
-		rpcServer:  rps,
-		tcpGw:      impl.NewGateway(app.Context(), "tcp-"+module+"-"+subModule, rpcclient.NewManager()),
-		wssGw:      impl.NewGateway(app.Context(), "wss-"+module+"-"+subModule, rpcclient.NewManager()),
-	}
-	if s.serverType == "" {
-		s.addErr(s.handlerError("type invalid", errors.New("type not support")))
+		id:              module + "-" + subModule,
+		module:          module,
+		subModule:       subModule,
+		name:            name,
+		app:             app,
+		endType:         et,
+		businessChannel: businessChannel,
+		rpcServer:       rps,
+		gateway:         impl.NewGateway(app.Context(), businessChannel+"-"+module+"-"+subModule, rpcclient.NewManager()),
 	}
 	s.initLogger()
 	s.initRegInfo()
-	s.tcpGw.Manager().RegisterAfterHandler(func(ctx context.Context, head rpcclient.Header, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
+	s.gateway.Manager().RegisterAfterHandler(func(ctx context.Context, head rpcclient.Header, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
 		if err != nil {
-			s.logger.Error(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " tcp-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
+			s.logger.Error(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", businessChannel, "-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		} else {
-			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " tcp-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
+			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", businessChannel, "-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		}
 	})
-	s.wssGw.Manager().RegisterAfterHandler(func(ctx context.Context, head rpcclient.Header, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
-		if err != nil {
-			s.logger.Error(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " wss-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
-		} else {
-			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " wss-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
-		}
-	})
-	s.tcpGwRegInfo = &regCenter.RegInfo{
+	s.watchGwRegInfo = &regCenter.RegInfo{
 		AppId:   app.Cluster().Id(),
 		RegType: regtype.Rpc,
 		ServerInfo: regCenter.ServerInfo{
-			Id:      sockettype.TCP.String() + "-gateway",
-			Name:    "",
-			Type:    servertype.Tcp.String(),
-			EndType: s.endType.String(),
-		},
-	}
-	s.wssGwRegInfo = &regCenter.RegInfo{
-		AppId:   app.Cluster().Id(),
-		RegType: regtype.Rpc,
-		ServerInfo: regCenter.ServerInfo{
-			Id:      sockettype.WSS.String() + "-gateway",
-			Name:    "",
-			Type:    servertype.Wss.String(),
+			Type:    "socket-gw@" + s.businessChannel,
 			EndType: s.endType.String(),
 		},
 	}
@@ -116,7 +90,7 @@ func (s *Handler) Name() string {
 
 // Type return the server type
 func (s *Handler) Type() servertype.ServerType {
-	return s.serverType
+	return "handler"
 }
 
 // EndType return the server end type
@@ -124,9 +98,9 @@ func (s *Handler) EndType() endtype.EndType {
 	return s.endType
 }
 
-// SocketType return the server socket type
-func (s *Handler) SocketType() sockettype.SocketType {
-	return s.socketType
+// BusinessChannel return the server business channel
+func (s *Handler) BusinessChannel() string {
+	return s.businessChannel
 }
 
 // Run start run
@@ -159,7 +133,7 @@ func (s *Handler) Run(failedCb func(error)) {
 		return
 	}
 	for _, h := range s.actListeners {
-		h(s.rpcServer.Manager().GetManager(s.socketType.ToHandlerSocketType()))
+		h(s.rpcServer.Manager().GetManager(s.businessChannel))
 	}
 	s.logger.Info("listen action initialized")
 	if s.app.Register() != nil {
@@ -197,12 +171,39 @@ func (s *Handler) Release() {
 	s.running = false
 }
 
-func (s *Handler) TcpGateway() *impl.Gateway {
-	return s.tcpGw
+func (s *Handler) Gateway() *impl.Gateway {
+	return s.gateway
 }
 
-func (s *Handler) WssGateway() *impl.Gateway {
-	return s.wssGw
+func (s *Handler) ChannelGateway(channel string) *impl.Gateway {
+	if v, ok := s.gateways[channel]; ok {
+		return v
+	}
+	gw, regInfo := s.initChannelGateway(channel)
+	s.gateways[channel] = gw
+	s.watchGwRegInfos[channel] = regInfo
+	_ = s.watchGw(s.app.Register(), gw, regInfo)
+	return gw
+}
+
+func (s *Handler) initChannelGateway(channel string) (*impl.Gateway, *regCenter.RegInfo) {
+	gw := impl.NewGateway(s.app.Context(), channel+"-"+s.module+"-"+s.subModule, rpcclient.NewManager())
+	gw.Manager().RegisterAfterHandler(func(ctx context.Context, head rpcclient.Header, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
+		if err != nil {
+			s.logger.Error(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", channel, "-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
+		} else {
+			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", channel, "-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
+		}
+	})
+	regInfo := &regCenter.RegInfo{
+		AppId:   s.app.Cluster().Id(),
+		RegType: regtype.Rpc,
+		ServerInfo: regCenter.ServerInfo{
+			Type:    "socket-gw@" + channel,
+			EndType: s.endType.String(),
+		},
+	}
+	return gw, regInfo
 }
 
 func (s *Handler) ActionManager() *impl.ManagerProvider {
@@ -242,11 +243,11 @@ func (s *Handler) Listen(act codec.Action, structure action.DataStructure, handl
 func (s *Handler) docConfig(provider func() ([]byte, error), public bool) *DocConfig {
 	return &DocConfig{
 		id:       s.id,
+		servType: servertype.ServerType(s.businessChannel),
 		endType:  s.endType,
-		servType: s.serverType,
 		RegTtl:   s.app.RegTtl(),
 		Doc: DocItem{
-			socketType: s.socketType,
+			socketType: sockettype.SocketType(s.businessChannel),
 			Title:      s.name,
 			Public:     public,
 			Provider:   provider,
@@ -263,7 +264,7 @@ func (s *Handler) initRegInfo() {
 		ServerInfo: regCenter.ServerInfo{
 			Id:      s.id,
 			Name:    s.name,
-			Type:    s.serverType.String(),
+			Type:    "socket-hdl@" + s.businessChannel,
 			EndType: s.endType.String(),
 		},
 		Host:      s.rpcServer.Server().Host().String(),
@@ -278,7 +279,7 @@ func (s *Handler) handlerError(msg string, err error) error {
 }
 
 func (s *Handler) register(register regCenter.Register, reg bool) error {
-	return s.rpcServer.Manager().GetManager(s.socketType.ToHandlerSocketType()).RangeHandlerActions(func(act codec.Action) error {
+	return s.rpcServer.Manager().GetManager(s.businessChannel).RangeHandlerActions(func(act codec.Action) error {
 		prefix := s.regInfo.Prefix()
 		key := strings.TrimPrefix(strings.Join([]string{prefix, s.regInfo.ServerInfo.Id, s.regInfo.Host, act.Id.String()}, "/"), "/")
 		if reg {
@@ -311,44 +312,40 @@ func (s *Handler) watch(register regCenter.Register) error {
 	if register == nil {
 		return nil
 	}
-	// watch tcp gateway
-	tcpGwPrefix := s.tcpGwRegInfo.Prefix() + "/"
-	err := register.Watch(s.app.Context(), tcpGwPrefix, func(key string, val string, isDel bool) {
-		segments := strings.Split(key, "/")
-		host := segments[len(segments)-1]
-		if isDel {
-			s.logger.Debug(utils.ToStr("tcp gateway [", host, "] leaved"))
-			s.tcpGw.Manager().Rm("gateway", host)
-		} else {
-			s.logger.Debug(utils.ToStr("tcp gateway [", host, "] added"))
-			s.tcpGw.Manager().Add("gateway", host)
-		}
-	})
-	if err != nil {
+	if err := s.watchGw(register, s.gateway, s.watchGwRegInfo); err != nil {
 		return err
 	}
-	wssGwPrefix := s.wssGwRegInfo.Prefix() + "/"
-	return register.Watch(s.app.Context(), wssGwPrefix, func(key string, val string, isDel bool) {
+	for ch, gw := range s.gateways {
+		if err := s.watchGw(register, gw, s.watchGwRegInfos[ch]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Handler) watchGw(register regCenter.Register, gw *impl.Gateway, regInfo *regCenter.RegInfo) error {
+	prefix := regInfo.Prefix() + "/"
+	return register.Watch(s.app.Context(), prefix, func(key string, val string, isDel bool) {
 		segments := strings.Split(key, "/")
 		host := segments[len(segments)-1]
 		if isDel {
-			s.logger.Debug(utils.ToStr("wss gateway [", host, "] leaved"))
-			s.wssGw.Manager().Rm("gateway", host)
+			s.logger.Debug(utils.ToStr(gw.Id()+": gateway [", host, "] leaved"))
+			gw.Manager().Rm("gateway", host)
 		} else {
-			s.logger.Debug(utils.ToStr("wss gateway [", host, "] added"))
-			s.wssGw.Manager().Add("gateway", host)
+			s.logger.Debug(utils.ToStr(gw.Id()+": gateway [", host, "] added"))
+			gw.Manager().Add("gateway", host)
 		}
 	})
 }
 
 func (s *Handler) initLogger() {
 	s.logCnf = s.app.LogConfig()
-	s.logger = s.app.Logger().Named(utils.ToStr(s.id, "-", s.endType.String(), "-", s.serverType.String()))
+	s.logger = s.app.Logger().Named(utils.ToStr(s.businessChannel, "-", s.id, s.endType.String(), "-handler"))
 }
 
-// SetWssActionFlbNum 用于解决 wss的action能负载到和tcp同一个服务上去, wss服务可用,(最好就是tcp的端口， 这样tcp负载算法输入和wss输入就一样了)
-func (s *Handler) SetWssActionFlbNum(num int) {
-	if s.socketType.ToServerType() == servertype.Wss && num > 0 {
+// SetActionFlbNum 用于解决 action能负载到和同一个服务上去, 内部业务与外部业务使用相同的服务,(最好就是主服务的端口，都和主服务一样的轮训)
+func (s *Handler) SetActionFlbNum(num int) {
+	if num > 0 {
 		s.flbNum = num
 	}
 }
