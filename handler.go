@@ -175,6 +175,14 @@ func (s *Handler) Gateway() *impl.Gateway {
 	return s.gateway
 }
 
+func (s *Handler) TcpGateway() *impl.Gateway {
+	return s.ChannelGateway("outer")
+}
+
+func (s *Handler) WssGateway() *impl.Gateway {
+	return s.ChannelGateway("inner")
+}
+
 func (s *Handler) ChannelGateway(channel string) *impl.Gateway {
 	if v, ok := s.gateways[channel]; ok {
 		return v
@@ -346,6 +354,12 @@ func (s *Handler) initLogger() {
 // SetActionFlbNum 用于解决 action能负载到和同一个服务上去, 内部业务与外部业务使用相同的服务,(最好就是主服务的端口，都和主服务一样的轮训)
 func (s *Handler) SetActionFlbNum(num int) {
 	if num > 0 {
+		s.flbNum = num
+	}
+}
+
+func (s *Handler) SetWssActionFlbNum(num int) {
+	if s.businessChannel == "inner" && num > 0 {
 		s.flbNum = num
 	}
 }
