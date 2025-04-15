@@ -37,8 +37,8 @@ type Handler struct {
 	docServer       *DocServer
 	regInfo         *regCenter.RegInfo            // actions
 	gateway         *impl.Gateway                 // current channel  gateway
-	watchGwRegInfos map[string]*regCenter.RegInfo // businessChannel => gateway
 	gateways        map[string]*impl.Gateway      // businessChannel => gateway
+	watchGwRegInfos map[string]*regCenter.RegInfo // businessChannel => gateway
 	errs            []error
 	flbNum          int
 	actListeners    []func(manager *action.Manager)
@@ -55,17 +55,11 @@ func New(app *application.Application, rps *ManagedRpc, module, subModule, name 
 		endType:         et,
 		businessChannel: businessChannel,
 		rpcServer:       rps,
-		gateway:         impl.NewGateway(app.Context(), businessChannel+"-"+module+"-"+subModule, rpcclient.NewManager()),
+		gateways:        make(map[string]*impl.Gateway),
+		watchGwRegInfos: make(map[string]*regCenter.RegInfo),
 	}
 	s.initLogger()
 	s.initRegInfo()
-	s.gateway.Manager().RegisterAfterHandler(func(ctx context.Context, head rpcclient.Header, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
-		if err != nil {
-			s.logger.Error(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", businessChannel, "-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
-		} else {
-			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", businessChannel, "-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
-		}
-	})
 	gw, reg := s.initChannelGateway(businessChannel)
 	s.gateway = gw
 	s.gateways[businessChannel] = gw
