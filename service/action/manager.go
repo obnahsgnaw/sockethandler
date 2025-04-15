@@ -4,13 +4,15 @@ import (
 	"context"
 	"github.com/obnahsgnaw/socketutil/codec"
 	"strconv"
+	"strings"
 	"sync"
 )
 
 type Manager struct {
-	handlers      sync.Map // action-id, action-handler
-	closeHandlers []Handler
-	closeAction   codec.Action
+	handlers       sync.Map // action-id, action-handler
+	moduleHandlers sync.Map // module@action-id, action-handler
+	closeHandlers  []Handler
+	closeAction    codec.Action
 }
 
 func NewManager() *Manager {
@@ -111,12 +113,13 @@ type actionHandler struct {
 }
 
 // RegisterHandler register an action with handler
-func (m *Manager) RegisterHandler(action codec.Action, ds DataStructure, handler Handler) {
+func (m *Manager) RegisterHandler(module string, action codec.Action, ds DataStructure, handler Handler) {
 	if action.Id == m.closeAction.Id {
 		m.registerCloseHandler(handler)
 		return
 	}
 	m.handlers.Store(action.Id, actionHandler{action: action, structure: ds, handler: handler})
+	m.moduleHandlers.Store(module+"@"+strconv.Itoa(int(action.Id)), action)
 }
 
 func (m *Manager) registerCloseHandler(handler Handler) {
@@ -140,11 +143,13 @@ func (m *Manager) GetHandler(actionId codec.ActionId) (codec.Action, DataStructu
 	return codec.Action{}, nil, nil, false
 }
 
-func (m *Manager) RangeHandlerActions(handle func(action codec.Action) error) (err error) {
-	m.handlers.Range(func(key, value interface{}) bool {
-		h := value.(actionHandler)
-		if err = handle(h.action); err != nil {
-			return false
+func (m *Manager) RangeHandlerActions(module string, handle func(action codec.Action) error) (err error) {
+	m.moduleHandlers.Range(func(key, value interface{}) bool {
+		keyStr := key.(string)
+		if strings.HasPrefix(keyStr, module+"@") {
+			if err = handle(value.(codec.Action)); err != nil {
+				return false
+			}
 		}
 		return true
 	})
