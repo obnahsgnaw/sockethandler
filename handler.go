@@ -36,7 +36,6 @@ type Handler struct {
 	engin           *http.Http
 	docServer       *DocServer
 	regInfo         *regCenter.RegInfo            // actions
-	watchGwRegInfo  *regCenter.RegInfo            // current channel gateway
 	gateway         *impl.Gateway                 // current channel  gateway
 	watchGwRegInfos map[string]*regCenter.RegInfo // businessChannel => gateway
 	gateways        map[string]*impl.Gateway      // businessChannel => gateway
@@ -67,14 +66,11 @@ func New(app *application.Application, rps *ManagedRpc, module, subModule, name 
 			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", businessChannel, "-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		}
 	})
-	s.watchGwRegInfo = &regCenter.RegInfo{
-		AppId:   app.Cluster().Id(),
-		RegType: regtype.Rpc,
-		ServerInfo: regCenter.ServerInfo{
-			Type:    "socket-gw@" + s.businessChannel,
-			EndType: s.endType.String(),
-		},
-	}
+	gw, reg := s.initChannelGateway(businessChannel)
+	s.gateway = gw
+	s.gateways[businessChannel] = gw
+	s.watchGwRegInfos[businessChannel] = reg
+
 	with(s, o...)
 	return s
 }
@@ -319,9 +315,6 @@ func (s *Handler) addErr(err error) {
 func (s *Handler) watch(register regCenter.Register) error {
 	if register == nil {
 		return nil
-	}
-	if err := s.watchGw(register, s.gateway, s.watchGwRegInfo); err != nil {
-		return err
 	}
 	for ch, gw := range s.gateways {
 		if err := s.watchGw(register, gw, s.watchGwRegInfos[ch]); err != nil {

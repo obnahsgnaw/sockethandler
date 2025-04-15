@@ -26,9 +26,11 @@ func DocServ(ins *http.Http, provider func() ([]byte, error), public bool) Optio
 func WatchChannelGateway(channel ...string) Option {
 	return func(s *Handler) {
 		for _, ch := range channel {
-			gw, reg := s.initChannelGateway(ch)
-			s.gateways[ch] = gw
-			s.watchGwRegInfos[ch] = reg
+			if _, ok := s.gateways[ch]; !ok {
+				gw, reg := s.initChannelGateway(ch)
+				s.gateways[ch] = gw
+				s.watchGwRegInfos[ch] = reg
+			}
 		}
 	}
 }
