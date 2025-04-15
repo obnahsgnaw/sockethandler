@@ -80,7 +80,7 @@ func (s *Handler) Name() string {
 
 // Type return the server type
 func (s *Handler) Type() servertype.ServerType {
-	return "handler"
+	return servertype.ServerType(s.businessChannel + "handler")
 }
 
 // EndType return the server end type
@@ -233,7 +233,7 @@ func (s *Handler) Listen(act codec.Action, structure action.DataStructure, handl
 				panic("action[" + act.String() + "] already listened.")
 			}
 		}
-		manager.RegisterHandler(act, structure, handler)
+		manager.RegisterHandler(s.id, act, structure, handler)
 		s.logger.Debug("listened action:" + act.Name)
 	})
 }
@@ -277,7 +277,7 @@ func (s *Handler) handlerError(msg string, err error) error {
 }
 
 func (s *Handler) register(register regCenter.Register, reg bool) error {
-	return s.rpcServer.Manager().GetManager(s.businessChannel).RangeHandlerActions(func(act codec.Action) error {
+	return s.rpcServer.Manager().GetManager(s.businessChannel).RangeHandlerActions(s.id, func(act codec.Action) error {
 		prefix := s.regInfo.Prefix()
 		key := strings.TrimPrefix(strings.Join([]string{prefix, s.regInfo.ServerInfo.Id, s.regInfo.Host, act.Id.String()}, "/"), "/")
 		if reg {
