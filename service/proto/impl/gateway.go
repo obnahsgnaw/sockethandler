@@ -114,20 +114,18 @@ func (s *Gateway) BindExistAll(id, idType string) (bool, error) {
 }
 
 type ConnInfo struct {
-	LocalAddr       net.Addr
-	RemoteAddr      net.Addr
-	ConnectAt       time.Time
-	SocketType      string
-	Uid             uint32
-	UName           string
-	TargetType      string
-	TargetId        string
-	TargetMasterId  string
-	TargetCid       uint32
-	TargetUid       uint32
-	TargetProtocol  uint32
-	TargetSid       string
-	TargetMasterSid string
+	LocalAddr      net.Addr
+	RemoteAddr     net.Addr
+	ConnectAt      time.Time
+	SocketType     string
+	Uid            uint32
+	UName          string
+	TargetType     string
+	TargetId       string
+	TargetCid      uint32
+	TargetUid      uint32
+	TargetProtocol uint32
+	TargetSid      string
 }
 type Addr struct {
 	net  string
@@ -160,20 +158,18 @@ func (s *Gateway) ConnInfo(gw string, fd int64) (ConnInfo, error) {
 
 	t, _ := time.Parse("2006-01-02 15:04:05", resp.ConnectAt)
 	return ConnInfo{
-		LocalAddr:       Addr{net: resp.LocalNetwork, addr: resp.LocalAddr},
-		RemoteAddr:      Addr{net: resp.RemoteNetwork, addr: resp.RemoteAddr},
-		ConnectAt:       t,
-		SocketType:      resp.SocketType,
-		Uid:             resp.Uid,
-		UName:           resp.Uname,
-		TargetType:      resp.TargetType,
-		TargetId:        resp.TargetId,
-		TargetMasterId:  resp.TargetMasterId,
-		TargetCid:       resp.TargetCid,
-		TargetUid:       resp.TargetUid,
-		TargetProtocol:  resp.TargetProtocol,
-		TargetSid:       resp.TargetSid,
-		TargetMasterSid: resp.TargetMasterSid,
+		LocalAddr:      Addr{net: resp.LocalNetwork, addr: resp.LocalAddr},
+		RemoteAddr:     Addr{net: resp.RemoteNetwork, addr: resp.RemoteAddr},
+		ConnectAt:      t,
+		SocketType:     resp.SocketType,
+		Uid:            resp.Uid,
+		UName:          resp.Uname,
+		TargetType:     resp.TargetType,
+		TargetId:       resp.TargetId,
+		TargetCid:      resp.TargetCid,
+		TargetUid:      resp.TargetUid,
+		TargetProtocol: resp.TargetProtocol,
+		TargetSid:      resp.TargetSid,
 	}, nil
 }
 

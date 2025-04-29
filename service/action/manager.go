@@ -94,14 +94,12 @@ func (s *User) Oid() uint32 {
 }
 
 type Target struct {
-	Type            string
-	Id              string
-	Master          string
-	Cid             uint32
-	Uid             uint32
-	Protocol        string
-	SessionId       string
-	MasterSessionId string
+	Type      string
+	Id        string
+	Cid       uint32
+	Uid       uint32
+	Protocol  string
+	SessionId string
 }
 
 type Handler func(context.Context, *HandlerReq) (codec.Action, codec.DataPtr, error)
