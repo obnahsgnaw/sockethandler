@@ -113,26 +113,28 @@ func (s *Gateway) BindExistAll(id, idType string) (bool, error) {
 	return false, nil
 }
 
-func (s *Gateway) BindProxyTarget(gw string, target ...string) error {
+func (s *Gateway) BindProxyTarget(gw string, fd int64, target ...string) error {
 	var rqId string
 	gw, rqId = s.ParseRqId(gw)
 	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := bindv1.NewBindServiceClient(cc)
 
 		_, err := c.BindProxyTarget(s.ctx, &bindv1.ProxyTargetRequest{
+			Fd:     fd,
 			Target: target,
 		})
 		return err
 	})
 }
 
-func (s *Gateway) UnbindProxyTarget(gw string, target ...string) error {
+func (s *Gateway) UnbindProxyTarget(gw string, fd int64, target ...string) error {
 	var rqId string
 	gw, rqId = s.ParseRqId(gw)
 	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := bindv1.NewBindServiceClient(cc)
 
 		_, err := c.UnbindProxyTarget(s.ctx, &bindv1.ProxyTargetRequest{
+			Fd:     fd,
 			Target: target,
 		})
 		return err
