@@ -59,14 +59,12 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 	var target *action.Target
 	if q.Target != nil {
 		target = &action.Target{
-			Type:            q.Target.Type,
-			Id:              q.Target.Id,
-			Master:          q.Target.Master,
-			Cid:             q.Target.Cid,
-			Uid:             q.Target.Uid,
-			Protocol:        q.Target.Protocol,
-			SessionId:       q.Target.SessionId,
-			MasterSessionId: q.Target.MasterSessionId,
+			Type:      q.Target.Type,
+			Id:        q.Target.Id,
+			Cid:       q.Target.Cid,
+			Uid:       q.Target.Uid,
+			Protocol:  q.Target.Protocol,
+			SessionId: q.Target.SessionId,
 		}
 	}
 	req := action.NewHandlerReq(q.Gateway, act, q.Fd, u, data, q.BindIds, target)
