@@ -226,6 +226,7 @@ func (s *Gateway) SessionId(gw string, target string) (string, error) {
 		var err1 error
 		resp, err1 = c.SessionId(s.ctx, &connv1.ConnSidRequest{
 			Target: target,
+			Active: true,
 		})
 		return err1
 	})
