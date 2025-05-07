@@ -153,7 +153,6 @@ type ConnInfo struct {
 	TargetCid      uint32
 	TargetUid      uint32
 	TargetProtocol uint32
-	TargetSid      string
 }
 type Addr struct {
 	net  string
@@ -197,45 +196,7 @@ func (s *Gateway) ConnInfo(gw string, fd int64) (ConnInfo, error) {
 		TargetCid:      resp.TargetCid,
 		TargetUid:      resp.TargetUid,
 		TargetProtocol: resp.TargetProtocol,
-		TargetSid:      resp.TargetSid,
 	}, nil
-}
-
-func (s *Gateway) SessionIdAll(target, igGw string, active bool) (string, error) {
-	for _, gw := range s.m.Get("gateway") {
-		if gw == igGw {
-			continue
-		}
-		if sid, err := s.SessionId(gw, target, active); err != nil {
-			return "", err
-		} else {
-			if sid != "" {
-				return sid, nil
-			}
-		}
-	}
-	return "", nil
-}
-
-func (s *Gateway) SessionId(gw string, target string, active bool) (string, error) {
-	var rqId string
-	var resp *connv1.ConnSidResponse
-	gw, rqId = s.ParseRqId(gw)
-	err := s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
-		c := connv1.NewConnServiceClient(cc)
-		var err1 error
-		resp, err1 = c.SessionId(s.ctx, &connv1.ConnSidRequest{
-			Target: target,
-			Active: active,
-		})
-		return err1
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	return resp.SessionId, nil
 }
 
 func (s *Gateway) SendFdMessage(gw string, fd int64, act codec.Action, data codec.DataPtr) error {
