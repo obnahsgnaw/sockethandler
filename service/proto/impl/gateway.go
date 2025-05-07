@@ -201,12 +201,12 @@ func (s *Gateway) ConnInfo(gw string, fd int64) (ConnInfo, error) {
 	}, nil
 }
 
-func (s *Gateway) SessionIdAll(target, igGw string) (string, error) {
+func (s *Gateway) SessionIdAll(target, igGw string, active bool) (string, error) {
 	for _, gw := range s.m.Get("gateway") {
 		if gw == igGw {
 			continue
 		}
-		if sid, err := s.SessionId(gw, target); err != nil {
+		if sid, err := s.SessionId(gw, target, active); err != nil {
 			return "", err
 		} else {
 			if sid != "" {
@@ -217,7 +217,7 @@ func (s *Gateway) SessionIdAll(target, igGw string) (string, error) {
 	return "", nil
 }
 
-func (s *Gateway) SessionId(gw string, target string) (string, error) {
+func (s *Gateway) SessionId(gw string, target string, active bool) (string, error) {
 	var rqId string
 	var resp *connv1.ConnSidResponse
 	gw, rqId = s.ParseRqId(gw)
@@ -226,7 +226,7 @@ func (s *Gateway) SessionId(gw string, target string) (string, error) {
 		var err1 error
 		resp, err1 = c.SessionId(s.ctx, &connv1.ConnSidRequest{
 			Target: target,
-			Active: true,
+			Active: active,
 		})
 		return err1
 	})
