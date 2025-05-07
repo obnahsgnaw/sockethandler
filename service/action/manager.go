@@ -96,6 +96,8 @@ func (s *User) Oid() uint32 {
 type Target struct {
 	Type      string
 	Id        string
+	Iid       uint32
+	Sn        string
 	Cid       uint32
 	Uid       uint32
 	Protocol  string
