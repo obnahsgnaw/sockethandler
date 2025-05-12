@@ -116,14 +116,14 @@ type actionHandler struct {
 // RegisterHandler register an action with handler
 func (m *Manager) RegisterHandler(module string, action codec.Action, ds DataStructure, handler Handler) {
 	if action.Id == m.closeAction.Id {
-		m.registerCloseHandler(handler)
+		m.registerCloseHandler(module, handler)
 		return
 	}
 	m.handlers.Store(action.Id, actionHandler{action: action, structure: ds, handler: handler})
 	m.moduleHandlers.Store(module+"@"+strconv.Itoa(int(action.Id)), action)
 }
 
-func (m *Manager) registerCloseHandler(handler Handler) {
+func (m *Manager) registerCloseHandler(module string, handler Handler) {
 	m.closeHandlers = append(m.closeHandlers, handler)
 	if _, ok := m.handlers.Load(m.closeAction.Id); !ok {
 		m.handlers.Store(m.closeAction.Id, actionHandler{action: m.closeAction, structure: func() codec.DataPtr { return nil }, handler: func(ctx context.Context, req *HandlerReq) (codec.Action, codec.DataPtr, error) {
@@ -132,6 +132,7 @@ func (m *Manager) registerCloseHandler(handler Handler) {
 			}
 			return codec.Action{}, nil, nil
 		}})
+		m.moduleHandlers.Store(module+"@"+strconv.Itoa(int(m.closeAction.Id)), m.closeAction)
 	}
 }
 
