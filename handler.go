@@ -335,7 +335,7 @@ func (s *Handler) watchGw(register regCenter.Register, gw *impl.Gateway, regInfo
 
 func (s *Handler) initLogger() {
 	s.logCnf = s.app.LogConfig()
-	s.logger = s.app.Logger().Named(utils.ToStr(s.businessChannel, "-", s.id, s.endType.String(), "-handler"))
+	s.logger = s.app.Logger().Named(utils.ToStr(s.id, "-", s.endType.String(), "-", s.businessChannel, "handler"))
 }
 
 // SetActionFlbNum 用于解决 action能负载到和同一个服务上去, 内部业务与外部业务使用相同的服务,(最好就是主服务的端口，都和主服务一样的轮训)
