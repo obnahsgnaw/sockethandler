@@ -141,6 +141,28 @@ func (s *Gateway) UnbindProxyTarget(gw string, fd int64, target ...string) error
 	})
 }
 
+func (s *Gateway) TargetBindId(target, bindType string) (*bindv1.Id, error) {
+	var resp *bindv1.TargetBindIdResponse
+	for _, gw := range s.m.Get("gateway") {
+		err := s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", "", "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
+			c := bindv1.NewBindServiceClient(cc)
+			var err1 error
+			resp, err1 = c.TargetBindId(s.ctx, &bindv1.TargetBindIdRequest{
+				Target:   target,
+				BindType: bindType,
+			})
+			return err1
+		})
+		if err != nil {
+			return nil, err
+		}
+		if resp != nil && resp.Id != nil {
+			return resp.Id, nil
+		}
+	}
+	return nil, nil
+}
+
 type ConnInfo struct {
 	LocalAddr      net.Addr
 	RemoteAddr     net.Addr

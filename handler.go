@@ -188,7 +188,7 @@ func (s *Handler) initChannelGateway(channel string) (*impl.Gateway, *regCenter.
 	gw := impl.NewGateway(s.app.Context(), channel+"-"+s.module+"-"+s.subModule, rpcclient.NewManager())
 	gw.Manager().RegisterAfterHandler(func(ctx context.Context, head rpcclient.Header, method string, req, reply interface{}, cc *grpc.ClientConn, err error, opts ...grpc.CallOption) {
 		if err != nil {
-			s.logger.Error(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", channel, "-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
+			s.logger.Warn(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", channel, "-gateway[", method, "] failed,", err.Error()), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		} else {
 			s.logger.Debug(utils.ToStr(head.RqId, " ", head.From, " rpc call ", head.To, " ", channel, "-gateway[", method, "] success"), zap.Any("rq_id", head.RqId), zap.Any("req", req), zap.Any("resp", reply))
 		}
