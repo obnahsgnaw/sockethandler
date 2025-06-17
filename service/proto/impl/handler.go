@@ -68,7 +68,7 @@ func (s *HandlerService) Handle(ctx context.Context, q *handlerv1.HandleRequest)
 			Protocol: q.Target.Protocol,
 		}
 	}
-	req := action.NewHandlerReq(q.Gateway, act, q.Fd, u, data, q.BindIds, target)
+	req := action.NewHandlerReq(q.Gateway, act, q.Fd, u, data, q.BindIds, target, toCodecName(q.Format), q.Package)
 
 	respAction, respData, err := handler(ctx, req)
 	if err != nil {
