@@ -27,6 +27,16 @@ type HandlerReq struct {
 	Data    codec.DataPtr
 	User    *User
 	Target  *Target
+	cname   codec.Name
+	raw     []byte
+}
+
+func (q *HandlerReq) DataFormat() codec.Name {
+	return q.cname
+}
+
+func (q *HandlerReq) Raw() []byte {
+	return q.raw
 }
 
 func (q *HandlerReq) BondId(typ string) (string, bool) {
@@ -34,7 +44,7 @@ func (q *HandlerReq) BondId(typ string) (string, bool) {
 	return id, ok
 }
 
-func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec.DataPtr, ids map[string]string, target *Target) *HandlerReq {
+func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec.DataPtr, ids map[string]string, target *Target, cname codec.Name, raw []byte) *HandlerReq {
 	if target == nil {
 		target = &Target{}
 	}
@@ -46,6 +56,8 @@ func NewHandlerReq(gw string, action codec.Action, fd int64, u *User, data codec
 		Data:    data,
 		User:    u,
 		Target:  target,
+		cname:   cname,
+		raw:     raw,
 	}
 }
 
