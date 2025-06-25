@@ -54,7 +54,7 @@ func (s *Gateway) BindId(gw string, fd int64, id ...*bindv1.Id) error {
 	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := bindv1.NewBindServiceClient(cc)
 
-		_, err := c.BindId(s.ctx, &bindv1.BindIdRequest{
+		_, err := c.BindId(ctx, &bindv1.BindIdRequest{
 			Fd:  fd,
 			Ids: id,
 		})
@@ -68,7 +68,7 @@ func (s *Gateway) UnBindId(gw string, fd int64, typ ...string) error {
 	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := bindv1.NewBindServiceClient(cc)
 
-		_, err := c.UnBindId(s.ctx, &bindv1.UnBindIdRequest{
+		_, err := c.UnBindId(ctx, &bindv1.UnBindIdRequest{
 			Fd:    fd,
 			Types: typ,
 		})
@@ -84,7 +84,7 @@ func (s *Gateway) BindExist(gw string, id, typ string) (bool, error) {
 		c := bindv1.NewBindServiceClient(cc)
 
 		var err1 error
-		p, err1 = c.BindExist(s.ctx, &bindv1.BindExistRequest{
+		p, err1 = c.BindExist(ctx, &bindv1.BindExistRequest{
 			Id: &bindv1.Id{
 				Typ: typ,
 				Id:  id,
@@ -119,7 +119,7 @@ func (s *Gateway) BindProxyTarget(gw string, fd int64, target ...string) error {
 	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := bindv1.NewBindServiceClient(cc)
 
-		_, err := c.BindProxyTarget(s.ctx, &bindv1.ProxyTargetRequest{
+		_, err := c.BindProxyTarget(ctx, &bindv1.ProxyTargetRequest{
 			Fd:     fd,
 			Target: target,
 		})
@@ -133,7 +133,7 @@ func (s *Gateway) UnbindProxyTarget(gw string, fd int64, target ...string) error
 	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := bindv1.NewBindServiceClient(cc)
 
-		_, err := c.UnbindProxyTarget(s.ctx, &bindv1.ProxyTargetRequest{
+		_, err := c.UnbindProxyTarget(ctx, &bindv1.ProxyTargetRequest{
 			Fd:     fd,
 			Target: target,
 		})
@@ -147,7 +147,7 @@ func (s *Gateway) TargetBindId(target, bindType string) (*bindv1.Id, error) {
 		err := s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", "", "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 			c := bindv1.NewBindServiceClient(cc)
 			var err1 error
-			resp, err1 = c.TargetBindId(s.ctx, &bindv1.TargetBindIdRequest{
+			resp, err1 = c.TargetBindId(ctx, &bindv1.TargetBindIdRequest{
 				Target:   target,
 				BindType: bindType,
 			})
@@ -195,7 +195,7 @@ func (s *Gateway) ConnInfo(gw string, fd int64) (ConnInfo, error) {
 	err := s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := connv1.NewConnServiceClient(cc)
 		var err1 error
-		resp, err1 = c.Info(s.ctx, &connv1.ConnInfoRequest{
+		resp, err1 = c.Info(ctx, &connv1.ConnInfoRequest{
 			Fd: fd,
 		})
 		return err1
@@ -237,7 +237,7 @@ func (s *Gateway) SendFdMessage(gw string, fd int64, act codec.Action, data code
 			return err
 		}
 
-		_, err = c.SendMessage(s.ctx, &messagev1.SendMessageRequest{
+		_, err = c.SendMessage(ctx, &messagev1.SendMessageRequest{
 			Target:      &messagev1.SendMessageRequest_Fd{Fd: fd},
 			ActionId:    uint32(act.Id),
 			ActionName:  act.Name,
@@ -265,7 +265,7 @@ func (s *Gateway) SendIdMessage(gw string, id *messagev1.SendMessageRequest_Bind
 			return err
 		}
 
-		_, err = c.SendMessage(s.ctx, &messagev1.SendMessageRequest{
+		_, err = c.SendMessage(ctx, &messagev1.SendMessageRequest{
 			Target: &messagev1.SendMessageRequest_Id{
 				Id: id,
 			},
@@ -296,7 +296,7 @@ func (s *Gateway) JoinGroup(gw string, group, id string, fd int64) error {
 	return s.m.HostCall(s.ctx, gw, 2, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := groupv1.NewGroupServiceClient(cc)
 
-		_, err := c.JoinGroup(s.ctx, &groupv1.JoinGroupRequest{
+		_, err := c.JoinGroup(ctx, &groupv1.JoinGroupRequest{
 			Group: &groupv1.Group{Name: group},
 			Member: &groupv1.Member{
 				Fd: fd,
@@ -314,7 +314,7 @@ func (s *Gateway) LeaveGroup(gw string, group string, fd int64) error {
 	return s.m.HostCall(s.ctx, gw, 2, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := groupv1.NewGroupServiceClient(cc)
 
-		_, err := c.LeaveGroup(s.ctx, &groupv1.LeaveGroupRequest{
+		_, err := c.LeaveGroup(ctx, &groupv1.LeaveGroupRequest{
 			Group: &groupv1.Group{Name: group},
 			Fd:    fd,
 		})
@@ -339,7 +339,7 @@ func (s *Gateway) Broadcast(gw string, group string, act codec.Action, data code
 			return err
 		}
 
-		_, err = c.BroadcastGroup(s.ctx, &groupv1.BroadcastGroupRequest{
+		_, err = c.BroadcastGroup(ctx, &groupv1.BroadcastGroupRequest{
 			Group:       &groupv1.Group{Name: group},
 			ActionId:    uint32(act.Id),
 			ActionName:  act.Name,
@@ -370,7 +370,7 @@ func (s *Gateway) SetActionSlb(gw string, fd, action, slb int64) error {
 	return s.m.HostCall(s.ctx, gw, 0, s.id, "gateway", rqId, "", "", func(ctx context.Context, cc *grpc.ClientConn) error {
 		c := slbv1.NewSlbServiceClient(cc)
 
-		_, err := c.SetActionSlb(s.ctx, &slbv1.ActionSlbRequest{
+		_, err := c.SetActionSlb(ctx, &slbv1.ActionSlbRequest{
 			Fd:     fd,
 			Action: action,
 			Sbl:    slb,
