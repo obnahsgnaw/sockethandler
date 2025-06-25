@@ -1,4 +1,96 @@
 
+<a name="v0.28.17"></a>
+## [v0.28.17](https://8.140.161.172/wangsb/wgateway/compare/v0.28.16...v0.28.17) (2025-06-25)
+
+
+<a name="v0.28.16"></a>
+## [v0.28.16](https://8.140.161.172/wangsb/wgateway/compare/v0.28.15...v0.28.16) (2025-06-17)
+
+
+<a name="v0.28.15"></a>
+## [v0.28.15](https://8.140.161.172/wangsb/wgateway/compare/v0.28.8...v0.28.15) (2025-06-06)
+
+
+<a name="v0.28.8"></a>
+## [v0.28.8](https://8.140.161.172/wangsb/wgateway/compare/v0.28.7...v0.28.8) (2025-05-19)
+
+
+<a name="v0.28.7"></a>
+## [v0.28.7](https://8.140.161.172/wangsb/wgateway/compare/v0.28.6...v0.28.7) (2025-05-12)
+
+
+<a name="v0.28.6"></a>
+## [v0.28.6](https://8.140.161.172/wangsb/wgateway/compare/v0.28.5...v0.28.6) (2025-05-07)
+
+
+<a name="v0.28.5"></a>
+## [v0.28.5](https://8.140.161.172/wangsb/wgateway/compare/v0.28.4...v0.28.5) (2025-05-07)
+
+
+<a name="v0.28.4"></a>
+## [v0.28.4](https://8.140.161.172/wangsb/wgateway/compare/v0.28.3...v0.28.4) (2025-05-07)
+
+
+<a name="v0.28.3"></a>
+## [v0.28.3](https://8.140.161.172/wangsb/wgateway/compare/v0.28.2...v0.28.3) (2025-05-07)
+
+
+<a name="v0.28.2"></a>
+## [v0.28.2](https://8.140.161.172/wangsb/wgateway/compare/v0.28.1...v0.28.2) (2025-04-29)
+
+
+<a name="v0.28.1"></a>
+## [v0.28.1](https://8.140.161.172/wangsb/wgateway/compare/v0.28.0...v0.28.1) (2025-04-29)
+
+
+<a name="v0.28.0"></a>
+## [v0.28.0](https://8.140.161.172/wangsb/wgateway/compare/v0.27.0...v0.28.0) (2025-04-29)
+
+### Features
+
+* **all:** remove master id
+
+
+<a name="v0.27.0"></a>
+## [v0.27.0](https://8.140.161.172/wangsb/wgateway/compare/v0.26.4...v0.27.0) (2025-04-27)
+
+### Features
+
+* **handler:** added session support
+
+
+<a name="v0.26.4"></a>
+## [v0.26.4](https://8.140.161.172/wangsb/wgateway/compare/v0.26.3...v0.26.4) (2025-04-15)
+
+### Bug Fixes
+
+* **manager:** fix manager action register with mmodule for multi handler in one manager
+
+
+<a name="v0.26.3"></a>
+## [v0.26.3](https://8.140.161.172/wangsb/wgateway/compare/v0.26.2...v0.26.3) (2025-04-15)
+
+
+<a name="v0.26.2"></a>
+## [v0.26.2](https://8.140.161.172/wangsb/wgateway/compare/v0.26.1...v0.26.2) (2025-04-15)
+
+
+<a name="v0.26.1"></a>
+## [v0.26.1](https://8.140.161.172/wangsb/wgateway/compare/v0.26.0...v0.26.1) (2025-04-14)
+
+
+<a name="v0.26.0"></a>
+## [v0.26.0](https://8.140.161.172/wangsb/wgateway/compare/v0.25.0...v0.26.0) (2025-04-14)
+
+### Features
+
+* **all:** added business channel support
+
+
+<a name="v0.25.0"></a>
+## [v0.25.0](https://8.140.161.172/wangsb/wgateway/compare/v0.21.14...v0.25.0) (2025-02-13)
+
+
 <a name="v0.21.14"></a>
 ## [v0.21.14](https://8.140.161.172/wangsb/wgateway/compare/v0.21.13...v0.21.14) (2025-01-18)
 
